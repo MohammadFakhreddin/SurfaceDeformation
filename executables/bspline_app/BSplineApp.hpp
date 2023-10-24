@@ -11,8 +11,7 @@
 #include "render_resource/DepthRenderResource.hpp"
 #include "render_resource/MSAA_RenderResource.hpp"
 #include "render_resource/SwapChainRenderResource.hpp"
-#include "utils/LineRenderer.hpp"
-#include "utils/PointRenderer.hpp"
+#include "BSplineApp.hpp"
 
 #include <memory>
 
@@ -49,8 +48,6 @@ private:
 	std::shared_ptr<MFA::HostVisibleBufferTracker<glm::mat4>> cameraBufferTracker{};
 
 	std::shared_ptr<MFA::LinePipeline> linePipeline{};
-	
 	std::shared_ptr<MFA::PointPipeline> pointPipeline{};
-	std::shared_ptr<MFA::PointRenderer> pointRenderer{};
 
 };

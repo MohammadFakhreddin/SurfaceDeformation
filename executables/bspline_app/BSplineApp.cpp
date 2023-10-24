@@ -16,7 +16,7 @@ BSplineApp::BSplineApp()
         .windowHeight = 600,
         .resizable = true,
         .fullScreen = false,
-        .applicationName = "cinpact"
+        .applicationName = "BSpline"
     };
 
     device = LogicalDevice::Instantiate(params);
@@ -51,8 +51,6 @@ BSplineApp::BSplineApp()
     linePipeline = std::make_shared<LinePipeline>(displayRenderPass, cameraBuffer, 10000);
     pointPipeline = std::make_shared<PointPipeline>(displayRenderPass, cameraBuffer, 10000);
 
-    pointRenderer = std::make_shared<PointRenderer>(pointPipeline);
-
     device->SDL_EventSignal.Register([&](SDL_Event* event)->void
     {
         OnSDL_Event(event);
@@ -63,7 +61,6 @@ BSplineApp::BSplineApp()
 
 BSplineApp::~BSplineApp()
 {
-    pointRenderer.reset();
     linePipeline.reset();
     pointPipeline.reset();
     cameraBufferTracker.reset();

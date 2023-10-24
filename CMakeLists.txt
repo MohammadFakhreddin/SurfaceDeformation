@@ -129,6 +129,12 @@ link_libraries(RenderSystem)
 
 ### Executables
 
+### Shared ################################################
+
+add_subdirectory("${CMAKE_SOURCE_DIR}/shared")
+include_directories("${CMAKE_SOURCE_DIR}/shared")
+link_libraries(Shared)
+
 ### BSplineApp ############################################
 
 add_subdirectory("${CMAKE_SOURCE_DIR}/executables/bspline_app")
