@@ -87,6 +87,10 @@ include_directories(${SDL2_INCLUDE_DIRS})
 message(STATUS "SDL libraries are ${SDL2_LIBRARIES}")
 link_libraries(${SDL2_LIBRARIES})
 
+### Working directory
+
+add_compile_definitions("ASSET_DIR=${CMAKE_SOURCE_DIR}/assets")
+
 ### Bedrock ##############################################
 
 add_subdirectory("${CMAKE_SOURCE_DIR}/engine/bedrock")
