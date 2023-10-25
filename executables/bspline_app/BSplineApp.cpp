@@ -76,15 +76,19 @@ BSplineApp::~BSplineApp()
 
 //-----------------------------------------------------
 
+float deltaTimeSec = 0.0f;
+
 void BSplineApp::Run()
 {
     SDL_GL_SetSwapInterval(0);
     SDL_Event e;
     uint32_t deltaTimeMs = 1000.0f / 30.0f;
-    float deltaTimeSec = static_cast<float>(deltaTimeMs) / 1000.0f;
+    deltaTimeSec = static_cast<float>(deltaTimeMs) / 1000.0f;
     uint32_t startTime = SDL_GetTicks();
 
     bool shouldQuit = false;
+
+    uint32_t minDeltaTimeMs = static_cast<uint32_t>(1000.0f / 120.0f);
 
     while (shouldQuit == false)
     {
@@ -129,9 +133,14 @@ void BSplineApp::Run()
             device->Present(recordState, swapChainResource->GetSwapChainImages().swapChain);
         }
 
-        deltaTimeMs = std::max<uint32_t>(SDL_GetTicks() - startTime, static_cast<uint32_t>(1000.0f / 240.0f));
+        deltaTimeMs = std::max<uint32_t>(SDL_GetTicks() - startTime, static_cast<uint32_t>(1.0f));
         startTime = SDL_GetTicks();
         deltaTimeSec = static_cast<float>(deltaTimeMs) / 1000.0f;
+        if (deltaTimeMs < minDeltaTimeMs)
+        {
+            SDL_Delay(minDeltaTimeMs - deltaTimeMs);
+            deltaTimeMs = minDeltaTimeMs;
+        }
     }
 
     device->DeviceWaitIdle();
@@ -156,6 +165,7 @@ void BSplineApp::Render(MFA::RT::CommandRecordState& recordState)
 void BSplineApp::OnUI()
 {
     ui->BeginWindow("Settings");
+    ImGui::Text("Delta time: %f", deltaTimeSec);
     ui->EndWindow();
 }
 
