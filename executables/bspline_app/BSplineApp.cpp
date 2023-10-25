@@ -133,14 +133,15 @@ void BSplineApp::Run()
             device->Present(recordState, swapChainResource->GetSwapChainImages().swapChain);
         }
 
-        deltaTimeMs = std::max<uint32_t>(SDL_GetTicks() - startTime, static_cast<uint32_t>(1.0f));
-        startTime = SDL_GetTicks();
-        deltaTimeSec = static_cast<float>(deltaTimeMs) / 1000.0f;
+        deltaTimeMs = SDL_GetTicks() - startTime;
         if (deltaTimeMs < minDeltaTimeMs)
         {
             SDL_Delay(minDeltaTimeMs - deltaTimeMs);
             deltaTimeMs = minDeltaTimeMs;
         }
+        deltaTimeSec = static_cast<float>(deltaTimeMs) / 1000.0f;
+        startTime = SDL_GetTicks();
+        
     }
 
     device->DeviceWaitIdle();
