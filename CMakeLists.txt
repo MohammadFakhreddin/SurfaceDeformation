@@ -79,6 +79,13 @@ include_directories("${CMAKE_CURRENT_SOURCE_DIR}/engine/libs/libconfig/nlohmann"
 include_directories("${CMAKE_CURRENT_SOURCE_DIR}/engine/libs/libconfig/tiny_gltf_loader")
 link_libraries(LibConfig)
 
+### Eigen ###############################################
+
+find_package(Eigen3 CONFIG REQUIRED)
+message(STATUS "Eigen include directories are ${EIGEN3_INCLUDE_DIRS}")
+include_directories(${EIGEN3_INCLUDE_DIRS})
+link_libraries(Eigen3::Eigen)
+
 ## SDL #################################################
 
 find_package(SDL2 REQUIRED)
