@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION VERSION 3.16.0)
 
-project ("cinpact" C CXX)
+project ("SurfaceDeformation" C CXX)
 
 set_property (GLOBAL PROPERTY USE_FOLDERS ON)
 
