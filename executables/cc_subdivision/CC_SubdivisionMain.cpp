@@ -2,12 +2,12 @@
 
 #include "BedrockMath.hpp"
 #include "BufferTracker.hpp"
-#include "BSplineApp.hpp"
+#include "CC_SubdivisionApp.hpp"
 
 int main()
 {
     {
-        BSplineApp app{};
+        CC_SubdivisionApp app{};
         app.Run();
     }
     

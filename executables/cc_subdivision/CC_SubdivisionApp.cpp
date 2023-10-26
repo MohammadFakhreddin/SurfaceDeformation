@@ -1,12 +1,18 @@
-#include "BSplineApp.hpp"
+#include "CC_SubdivisionApp.hpp"
+
+#include "geometrycentral/surface/meshio.h"
+#include "geometrycentral/surface/common_subdivision.h"
+#include "geometrycentral/surface/subdivide.h"
+
+using namespace geometrycentral::surface;
 
 using namespace MFA;
 
 //-----------------------------------------------------
 
-BSplineApp::BSplineApp()
+CC_SubdivisionApp::CC_SubdivisionApp()
 {
-        MFA_LOG_DEBUG("Loading...");
+    MFA_LOG_DEBUG("Loading...");
 
     path = Path::Instantiate();
 
@@ -55,11 +61,18 @@ BSplineApp::BSplineApp()
     {
         OnSDL_Event(event);
     });
+
+
+    // Load a surface mesh which is required to be manifold
+    std::unique_ptr<ManifoldSurfaceMesh> mesh;
+    std::unique_ptr<VertexPositionGeometry> geometry;
+    std::tie(mesh, geometry) = readManifoldSurfaceMesh(Path::Instance->Get("spot.obj"));
+    catmullClarkSubdivide(*mesh, *geometry);
 }
 
 //-----------------------------------------------------
 
-BSplineApp::~BSplineApp()
+CC_SubdivisionApp::~CC_SubdivisionApp()
 {
     linePipeline.reset();
     pointPipeline.reset();
@@ -78,7 +91,7 @@ BSplineApp::~BSplineApp()
 
 float deltaTimeSec = 0.0f;
 
-void BSplineApp::Run()
+void CC_SubdivisionApp::Run()
 {
     SDL_GL_SetSwapInterval(0);
     SDL_Event e;
@@ -149,21 +162,21 @@ void BSplineApp::Run()
 
 //-----------------------------------------------------
 
-void BSplineApp::Update()
+void CC_SubdivisionApp::Update()
 {
 
 }
 
 //-----------------------------------------------------
 
-void BSplineApp::Render(MFA::RT::CommandRecordState& recordState)
+void CC_SubdivisionApp::Render(MFA::RT::CommandRecordState& recordState)
 {
 
 }
 
 //-----------------------------------------------------
 
-void BSplineApp::OnUI()
+void CC_SubdivisionApp::OnUI()
 {
     ui->BeginWindow("Settings");
     ImGui::Text("Delta time: %f", deltaTimeSec);
@@ -172,7 +185,7 @@ void BSplineApp::OnUI()
 
 //-----------------------------------------------------
 
-void BSplineApp::OnSDL_Event(SDL_Event* event)
+void CC_SubdivisionApp::OnSDL_Event(SDL_Event* event)
 {
 }
 

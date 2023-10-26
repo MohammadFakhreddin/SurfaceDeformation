@@ -11,17 +11,16 @@
 #include "render_resource/DepthRenderResource.hpp"
 #include "render_resource/MSAA_RenderResource.hpp"
 #include "render_resource/SwapChainRenderResource.hpp"
-#include "BSplineApp.hpp"
 
 #include <memory>
 
-class BSplineApp
+class CC_SubdivisionApp
 {
 public:
 
-    explicit BSplineApp();
+    explicit CC_SubdivisionApp();
 
-    ~BSplineApp();
+    ~CC_SubdivisionApp();
 
     void Run();
 

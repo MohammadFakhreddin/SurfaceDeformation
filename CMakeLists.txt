@@ -161,12 +161,12 @@ link_libraries(RenderSystem)
 
 ### Shared ################################################
 
-add_subdirectory("${CMAKE_SOURCE_DIR}/shared")
-include_directories("${CMAKE_SOURCE_DIR}/shared")
-link_libraries(Shared)
+# add_subdirectory("${CMAKE_SOURCE_DIR}/shared")
+# include_directories("${CMAKE_SOURCE_DIR}/shared")
+# link_libraries(Shared)
 
 ### BSplineApp ############################################
 
-add_subdirectory("${CMAKE_SOURCE_DIR}/executables/bspline_app")
+add_subdirectory("${CMAKE_SOURCE_DIR}/executables/cc_subdivision")
 
 ###########################################################
