@@ -170,13 +170,17 @@ void shared::SurfaceMeshRenderer::UpdateCpuIndices()
 			_indices.emplace_back(faceVertices[1]);
 			_indices.emplace_back(faceVertices[2]);
 			// Triangle1
+			_indices.emplace_back(faceVertices[1]);
 			_indices.emplace_back(faceVertices[3]);
 			_indices.emplace_back(faceVertices[2]);
-			_indices.emplace_back(faceVertices[0]);
 		}
 		else
 		{
 			MFA_ASSERT(false);
+		}
+		for (int i = 0; i < faceVertices.size(); ++i)
+		{
+			_indices.emplace_back(faceVertices[i]);
 		}
 	}
 }

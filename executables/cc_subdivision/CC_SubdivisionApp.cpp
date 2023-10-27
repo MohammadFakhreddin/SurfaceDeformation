@@ -60,13 +60,18 @@ CC_SubdivisionApp::CC_SubdivisionApp()
     colorPipeline = std::make_shared<ColorPipeline>(
         displayRenderPass, 
         cameraBuffer, 
-        ColorPipeline::Params{}
+        ColorPipeline::Params{
+			.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+		}
     );
 
     wireFramePipeline = std::make_shared<ColorPipeline>(
         displayRenderPass, 
         cameraBuffer, 
-        ColorPipeline::Params {.polygonMode = VK_POLYGON_MODE_LINE}
+        ColorPipeline::Params {
+			.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        	.polygonMode = VK_POLYGON_MODE_LINE,
+        }
     );
 
     device->SDL_EventSignal.Register([&](SDL_Event* event)->void
@@ -77,7 +82,7 @@ CC_SubdivisionApp::CC_SubdivisionApp()
     // Load a surface mesh which is required to be manifold
 
     std::tie(mesh, geometry) = readManifoldSurfaceMesh(Path::Instance->Get("models/cube.obj"));
-    //catmullClarkSubdivide(*mesh, *geometry);
+    catmullClarkSubdivide(*mesh, *geometry);
 
     meshRenderer = std::make_shared<shared::SurfaceMeshRenderer>(
 		colorPipeline,
