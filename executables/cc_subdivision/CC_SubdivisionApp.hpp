@@ -4,15 +4,19 @@
 #include "BufferTracker.hpp"
 #include "LogicalDevice.hpp"
 #include "UI.hpp"
-#include "camera/PerspectiveCamera.hpp"
 #include "pipeline/LinePipeline.hpp"
-#include "pipeline/PointPipeline.hpp"
 #include "render_pass/DisplayRenderPass.hpp"
 #include "render_resource/DepthRenderResource.hpp"
 #include "render_resource/MSAA_RenderResource.hpp"
 #include "render_resource/SwapChainRenderResource.hpp"
+#include "SurfaceMeshRenderer.hpp"
+#include "geometrycentral/surface/manifold_surface_mesh.h"
+#include "geometrycentral/surface/vertex_position_geometry.h"
+#include "pipeline/ColorPipeline.hpp"
 
 #include <memory>
+
+#include "camera/ObserverCamera.hpp"
 
 class CC_SubdivisionApp
 {
@@ -34,6 +38,8 @@ private:
 
 	void OnSDL_Event(SDL_Event* event);
 
+	float deltaTimeSec = 0.0f;
+
 	// Render parameters
 	std::shared_ptr<MFA::Path> path{};
 	std::shared_ptr<MFA::LogicalDevice> device{};
@@ -46,7 +52,18 @@ private:
 	std::shared_ptr<MFA::RT::BufferGroup> cameraBuffer{};
 	std::shared_ptr<MFA::HostVisibleBufferTracker<glm::mat4>> cameraBufferTracker{};
 
-	std::shared_ptr<MFA::LinePipeline> linePipeline{};
-	std::shared_ptr<MFA::PointPipeline> pointPipeline{};
+	std::shared_ptr<MFA::ColorPipeline> colorPipeline{};
+	std::shared_ptr<MFA::ColorPipeline> wireFramePipeline{};
+
+	std::shared_ptr<geometrycentral::surface::ManifoldSurfaceMesh> mesh{};
+	std::shared_ptr<geometrycentral::surface::VertexPositionGeometry> geometry{};
+
+	std::shared_ptr<shared::SurfaceMeshRenderer> meshRenderer{};
+	shared::SurfaceMeshRenderer::RenderOptions meshRendererOptions{
+		.useWireframe = true
+	};
+
+	std::unique_ptr<MFA::ObserverCamera> camera{};
+	
 
 };

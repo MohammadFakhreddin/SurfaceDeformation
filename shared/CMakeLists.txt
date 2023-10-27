@@ -2,6 +2,8 @@ set(LIBRARY_SOURCES)
 
 list(
     APPEND LIBRARY_SOURCES
+    "${CMAKE_CURRENT_SOURCE_DIR}/SurfaceMeshRenderer.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/SurfaceMeshRenderer.cpp"
 )
 
 set(LIBRARY_NAME "Shared")

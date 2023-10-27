@@ -35,6 +35,8 @@ list(
     "${CMAKE_CURRENT_SOURCE_DIR}/pipeline/LinePipeline.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/pipeline/PointPipeline.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/pipeline/PointPipeline.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/pipeline/ColorPipeline.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/pipeline/ColorPipeline.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/pipeline/FlatShadingPipeline.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/pipeline/FlatShadingPipeline.cpp"
     

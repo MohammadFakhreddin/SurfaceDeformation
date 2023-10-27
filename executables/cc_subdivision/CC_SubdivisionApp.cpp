@@ -1,7 +1,7 @@
 #include "CC_SubdivisionApp.hpp"
 
+#include "SurfaceMeshRenderer.hpp"
 #include "geometrycentral/surface/meshio.h"
-#include "geometrycentral/surface/common_subdivision.h"
 #include "geometrycentral/surface/subdivide.h"
 
 using namespace geometrycentral::surface;
@@ -22,12 +22,13 @@ CC_SubdivisionApp::CC_SubdivisionApp()
         .windowHeight = 600,
         .resizable = true,
         .fullScreen = false,
-        .applicationName = "BSpline"
+        .applicationName = "Catmul-Clark subdivison"
     };
 
     device = LogicalDevice::Instantiate(params);
     assert(device->IsValid() == true);
 
+    camera = std::make_unique<ObserverCamera>();
     
     swapChainResource = std::make_shared<SwapChainRenderResource>();
     depthResource = std::make_shared<DepthRenderResource>();
@@ -48,37 +49,57 @@ CC_SubdivisionApp::CC_SubdivisionApp()
         device->GetMaxFramePerFlight()
     );
 
-    cameraBufferTracker = std::make_shared<HostVisibleBufferTracker<glm::mat4>>(cameraBuffer, glm::identity<glm::mat4>());
+    camera->Setposition({ 0.0f, -1.0f, 15.0f });
+
+    cameraBufferTracker = std::make_shared<HostVisibleBufferTracker<glm::mat4>>(cameraBuffer, camera->GetViewProjection());
 
     device->ResizeEventSignal2.Register([this]()->void {
-        cameraBufferTracker->SetData(glm::identity<glm::mat4>());
+        cameraBufferTracker->SetData(camera->GetViewProjection());
     });
 
-    linePipeline = std::make_shared<LinePipeline>(displayRenderPass, cameraBuffer, 10000);
-    pointPipeline = std::make_shared<PointPipeline>(displayRenderPass, cameraBuffer, 10000);
+    colorPipeline = std::make_shared<ColorPipeline>(
+        displayRenderPass, 
+        cameraBuffer, 
+        ColorPipeline::Params{}
+    );
+
+    wireFramePipeline = std::make_shared<ColorPipeline>(
+        displayRenderPass, 
+        cameraBuffer, 
+        ColorPipeline::Params {.polygonMode = VK_POLYGON_MODE_LINE}
+    );
 
     device->SDL_EventSignal.Register([&](SDL_Event* event)->void
     {
         OnSDL_Event(event);
     });
 
-
     // Load a surface mesh which is required to be manifold
-    std::unique_ptr<ManifoldSurfaceMesh> mesh;
-    std::unique_ptr<VertexPositionGeometry> geometry;
-    std::tie(mesh, geometry) = readManifoldSurfaceMesh(Path::Instance->Get("spot.obj"));
-    catmullClarkSubdivide(*mesh, *geometry);
+
+    std::tie(mesh, geometry) = readManifoldSurfaceMesh(Path::Instance->Get("models/cube.obj"));
+    //catmullClarkSubdivide(*mesh, *geometry);
+
+    meshRenderer = std::make_shared<shared::SurfaceMeshRenderer>(
+		colorPipeline,
+        wireFramePipeline,
+        mesh,
+        geometry,
+        glm::vec4(1.0f, 0.0f, 0.0f, 1.0f),
+        glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)
+    );
 }
 
 //-----------------------------------------------------
 
 CC_SubdivisionApp::~CC_SubdivisionApp()
 {
-    linePipeline.reset();
-    pointPipeline.reset();
+    meshRenderer.reset();
+    colorPipeline.reset();
+    wireFramePipeline.reset();
     cameraBufferTracker.reset();
 	cameraBuffer.reset();
-    ui.reset();
+    camera.reset();
+	ui.reset();
     displayRenderPass.reset();
     swapChainResource.reset();
     depthResource.reset();
@@ -88,8 +109,6 @@ CC_SubdivisionApp::~CC_SubdivisionApp()
 }
 
 //-----------------------------------------------------
-
-float deltaTimeSec = 0.0f;
 
 void CC_SubdivisionApp::Run()
 {
@@ -115,35 +134,12 @@ void CC_SubdivisionApp::Run()
             }
         }
 
-        device->Update();
-
-        ui->Update();
-
         Update();
 
         auto recordState = device->AcquireRecordState(swapChainResource->GetSwapChainImages().swapChain);
         if (recordState.isValid == true)
         {
-            device->BeginCommandBuffer(
-                recordState,
-                RT::CommandBufferType::Graphic
-            );
-
-            cameraBufferTracker->Update(recordState);
-
-            displayRenderPass->Begin(recordState);
-
             Render(recordState);
-
-        	ui->Render(recordState, deltaTimeSec);
-
-            displayRenderPass->End(recordState);
-
-            device->EndCommandBuffer(recordState);
-
-            device->SubmitQueues(recordState);
-
-            device->Present(recordState, swapChainResource->GetSwapChainImages().swapChain);
         }
 
         deltaTimeMs = SDL_GetTicks() - startTime;
@@ -164,14 +160,39 @@ void CC_SubdivisionApp::Run()
 
 void CC_SubdivisionApp::Update()
 {
-
+    device->Update();
+    ui->Update();
+    camera->Update(deltaTimeSec);
+    if (camera->IsDirty())
+    {
+        cameraBufferTracker->SetData(camera->GetViewProjection());
+    }
 }
 
 //-----------------------------------------------------
 
 void CC_SubdivisionApp::Render(MFA::RT::CommandRecordState& recordState)
 {
+    device->BeginCommandBuffer(
+        recordState,
+        RT::CommandBufferType::Graphic
+    );
 
+    cameraBufferTracker->Update(recordState);
+
+    displayRenderPass->Begin(recordState);
+
+    meshRenderer->Render(recordState, meshRendererOptions);
+
+    ui->Render(recordState, deltaTimeSec);
+
+    displayRenderPass->End(recordState);
+
+    device->EndCommandBuffer(recordState);
+
+    device->SubmitQueues(recordState);
+
+    device->Present(recordState, swapChainResource->GetSwapChainImages().swapChain);
 }
 
 //-----------------------------------------------------

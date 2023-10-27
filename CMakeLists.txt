@@ -161,9 +161,9 @@ link_libraries(RenderSystem)
 
 ### Shared ################################################
 
-# add_subdirectory("${CMAKE_SOURCE_DIR}/shared")
-# include_directories("${CMAKE_SOURCE_DIR}/shared")
-# link_libraries(Shared)
+add_subdirectory("${CMAKE_SOURCE_DIR}/shared")
+include_directories("${CMAKE_SOURCE_DIR}/shared")
+link_libraries(Shared)
 
 ### BSplineApp ############################################
 
