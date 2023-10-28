@@ -29,11 +29,16 @@ namespace shared
             bool useWireframe = false;
         };
 
-        void UpdateGeometry();
-
         void Render(RecordState & recordState, RenderOptions const& options);
 
+        void UpdateGeometry(
+            std::shared_ptr<Mesh> mesh,
+            std::shared_ptr<Geometry> geometry
+        );
+
     private:
+
+        void UpdateGeometry();
 
         void UpdateCpuVertices();
 

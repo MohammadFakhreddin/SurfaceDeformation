@@ -38,6 +38,9 @@ private:
 
 	void OnSDL_Event(SDL_Event* event);
 
+	using Mesh = geometrycentral::surface::ManifoldSurfaceMesh;
+	using Geometry = geometrycentral::surface::VertexPositionGeometry;
+
 	float deltaTimeSec = 0.0f;
 
 	// Render parameters
@@ -55,8 +58,8 @@ private:
 	std::shared_ptr<MFA::ColorPipeline> colorPipeline{};
 	std::shared_ptr<MFA::ColorPipeline> wireFramePipeline{};
 
-	std::shared_ptr<geometrycentral::surface::ManifoldSurfaceMesh> mesh{};
-	std::shared_ptr<geometrycentral::surface::VertexPositionGeometry> geometry{};
+	std::shared_ptr<Mesh> originalMesh{};
+	std::shared_ptr<Geometry> originalGeometry{};
 
 	std::shared_ptr<shared::SurfaceMeshRenderer> meshRenderer{};
 	shared::SurfaceMeshRenderer::RenderOptions meshRendererOptions{
@@ -64,6 +67,9 @@ private:
 	};
 
 	std::unique_ptr<MFA::ObserverCamera> camera{};
-	
+	// Options
+	int subdivisionLevel = 0;
+	std::shared_ptr<Mesh> subdividedMesh{};
+	std::shared_ptr<Geometry> subdividedGeometry{};
 
 };

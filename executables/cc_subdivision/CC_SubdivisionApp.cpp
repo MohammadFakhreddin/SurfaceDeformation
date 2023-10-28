@@ -61,16 +61,18 @@ CC_SubdivisionApp::CC_SubdivisionApp()
         displayRenderPass, 
         cameraBuffer, 
         ColorPipeline::Params{
-			.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-		}
+            .cullModeFlags = VK_CULL_MODE_BACK_BIT,
+        	.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        }
     );
 
     wireFramePipeline = std::make_shared<ColorPipeline>(
         displayRenderPass, 
         cameraBuffer, 
         ColorPipeline::Params {
-			.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
-        	.polygonMode = VK_POLYGON_MODE_LINE,
+            .cullModeFlags = VK_CULL_MODE_BACK_BIT,
+        	.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+            .polygonMode = VK_POLYGON_MODE_LINE,
         }
     );
 
@@ -81,14 +83,16 @@ CC_SubdivisionApp::CC_SubdivisionApp()
 
     // Load a surface mesh which is required to be manifold
 
-    std::tie(mesh, geometry) = readManifoldSurfaceMesh(Path::Instance->Get("models/cube.obj"));
-    catmullClarkSubdivide(*mesh, *geometry);
+    std::tie(originalMesh, originalGeometry) = readManifoldSurfaceMesh(Path::Instance->Get("models/cube.obj"));
+    
+    subdividedMesh = originalMesh->copy();
+    subdividedGeometry = originalGeometry->copy();
 
     meshRenderer = std::make_shared<shared::SurfaceMeshRenderer>(
 		colorPipeline,
         wireFramePipeline,
-        mesh,
-        geometry,
+        subdividedMesh,
+        subdividedGeometry,
         glm::vec4(1.0f, 0.0f, 0.0f, 1.0f),
         glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)
     );
@@ -206,6 +210,22 @@ void CC_SubdivisionApp::OnUI()
 {
     ui->BeginWindow("Settings");
     ImGui::Text("Delta time: %f", deltaTimeSec);
+    if (ImGui::InputInt("Subdivision level", &subdivisionLevel))
+    {
+        if (subdivisionLevel < 0)
+        {
+            subdivisionLevel = 0;
+        }
+
+    	subdividedMesh = originalMesh->copy();
+        subdividedGeometry = originalGeometry->reinterpretTo(*subdividedMesh);
+        
+    	for (int i = 0; i < subdivisionLevel; ++i)
+        {
+            catmullClarkSubdivide(*subdividedMesh, *subdividedGeometry);
+        }
+        meshRenderer->UpdateGeometry(subdividedMesh, subdividedGeometry);
+    }
     ui->EndWindow();
 }
 
