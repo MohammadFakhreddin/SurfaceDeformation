@@ -70,6 +70,9 @@ namespace shared
 
         std::vector<std::shared_ptr<MFA::RT::BufferAndMemory>> _indexBuffers{};
         std::vector<size_t> _indexBufferSizes{};
-
+        // TODO: These are not used
+        std::vector<std::tuple<int, int, int>> _triangles{};
+        std::unordered_map<int, std::vector<int>> _vertexNeighbourTriangles{};
+    
     };
 };

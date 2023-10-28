@@ -1,11 +1,11 @@
 #include "SurfaceMeshRenderer.hpp"
 
-#include <ext/matrix_transform.hpp>
-
 #include "BedrockAssert.hpp"
 #include "BedrockMemory.hpp"
 #include "LogicalDevice.hpp"
 #include "RenderBackend.hpp"
+
+#include <ext/matrix_transform.hpp>
 
 using namespace MFA;
 using namespace geometrycentral;
@@ -34,9 +34,9 @@ shared::SurfaceMeshRenderer::SurfaceMeshRenderer(
 
 void shared::SurfaceMeshRenderer::UpdateGeometry()
 {
-	UpdateCpuVertices();
 	UpdateCpuIndices();
-
+	UpdateCpuVertices();
+	
 	auto const maxFramePerFlight = LogicalDevice::Instance->GetMaxFramePerFlight();
 	_bufferDirtyCounter = static_cast<int>(maxFramePerFlight);
 	
@@ -114,16 +114,8 @@ void shared::SurfaceMeshRenderer::Render(
 
 		_wireFramePipeline->SetPushConstants(
 			recordState,
-			ColorPipeline::PushConstants{
-				.model = glm::identity<glm::mat4>()
-			}
-		);
-
-		_colorPipeline->SetPushConstants(
-			recordState,
-			ColorPipeline::PushConstants{
-				.model = glm::identity<glm::mat4>(),
-				.color = _wireFrameColor
+			Pipeline::PushConstants{
+				.model = glm::scale(glm::identity<glm::mat4>(), {1.01f, 1.01f, 1.01f})
 			}
 		);
 
@@ -166,25 +158,60 @@ void shared::SurfaceMeshRenderer::UpdateCpuVertices()
 void shared::SurfaceMeshRenderer::UpdateCpuIndices()
 {
 	_indices.clear();
+	_vertexNeighbourTriangles.clear();
+	_triangles.clear();
+
 	auto const faceVertexList = _mesh->getFaceVertexList();
 	for (auto const & faceVertices : faceVertexList)
 	{
 		if (faceVertices.size() == 3)
 		{
-			_indices.emplace_back(faceVertices[0]);
-			_indices.emplace_back(faceVertices[1]);
-			_indices.emplace_back(faceVertices[2]);
+			int idx0 = faceVertices[0];
+			int idx1 = faceVertices[1];
+			int idx2 = faceVertices[2];
+
+			_indices.emplace_back(idx0);
+			_indices.emplace_back(idx1);
+			_indices.emplace_back(idx2);
+
+			_triangles.emplace_back(std::tuple{ idx0, idx1, idx2 });
+
+			_vertexNeighbourTriangles[idx0].emplace_back(_triangles.size() - 1);
+			_vertexNeighbourTriangles[idx1].emplace_back(_triangles.size() - 1);
+			_vertexNeighbourTriangles[idx2].emplace_back(_triangles.size() - 1);
 		}
 		else if (faceVertices.size() == 4)
 		{
-			// Triangle0
-			_indices.emplace_back(faceVertices[0]);
-			_indices.emplace_back(faceVertices[1]);
-			_indices.emplace_back(faceVertices[2]);
-			// Triangle1
-			_indices.emplace_back(faceVertices[2]);
-			_indices.emplace_back(faceVertices[3]);
-			_indices.emplace_back(faceVertices[0]);
+			{// Triangle0
+				int idx0 = faceVertices[0];
+				int idx1 = faceVertices[1];
+				int idx2 = faceVertices[2];
+
+				_indices.emplace_back(idx0);
+				_indices.emplace_back(idx1);
+				_indices.emplace_back(idx2);
+
+				_triangles.emplace_back(std::tuple{ idx0, idx1, idx2 });
+
+				_vertexNeighbourTriangles[idx0].emplace_back(_triangles.size() - 1);
+				_vertexNeighbourTriangles[idx1].emplace_back(_triangles.size() - 1);
+				_vertexNeighbourTriangles[idx2].emplace_back(_triangles.size() - 1);
+			}
+			{// Triangle1
+				int idx0 = faceVertices[2];
+				int idx1 = faceVertices[3];
+				int idx2 = faceVertices[0];
+
+				_indices.emplace_back(idx0);
+				_indices.emplace_back(idx1);
+				_indices.emplace_back(idx2);
+
+				_triangles.emplace_back(std::tuple{ idx0, idx1, idx2 });
+
+				_vertexNeighbourTriangles[idx0].emplace_back(_triangles.size() - 1);
+				_vertexNeighbourTriangles[idx1].emplace_back(_triangles.size() - 1);
+				_vertexNeighbourTriangles[idx2].emplace_back(_triangles.size() - 1);
+			}
 		}
 		else
 		{
