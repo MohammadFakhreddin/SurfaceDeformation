@@ -1,12 +1,12 @@
 #include "CC_SubdivisionApp.hpp"
 
-#include "SurfaceMeshRenderer.hpp"
 #include "geometrycentral/surface/meshio.h"
 #include "geometrycentral/surface/subdivide.h"
 
 using namespace geometrycentral::surface;
 
 using namespace MFA;
+using namespace shared;
 
 //-----------------------------------------------------
 // TODO:
@@ -96,10 +96,9 @@ CC_SubdivisionApp::CC_SubdivisionApp()
 		colorPipeline,
         wireFramePipeline,
         subdividedMesh,
-        subdividedGeometry,
-        glm::vec4(1.0f, 0.0f, 0.0f, 1.0f),
-        glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)
+        subdividedGeometry
     );
+    collisionTriangles = meshRenderer->GetCollisionTriangles(glm::identity<glm::mat4>());
 
     linePipeline = std::make_shared<LinePipeline>(displayRenderPass, cameraBuffer, 10000);
     lineRenderer = std::make_shared<LineRenderer>(linePipeline);
@@ -186,13 +185,13 @@ void CC_SubdivisionApp::Update()
         cameraBufferTracker->SetData(camera->GetViewProjection());
     }
 
-    if (_rightMouseDown == true)
+    if (rightMouseDown == true)
     {
         int mx, my;
         SDL_GetMouseState(&mx, &my);
 
         auto const surfaceCapabilities = LogicalDevice::Instance->GetSurfaceCapabilities();
-
+        // TODO: Move this to Math. It can be very useful
         auto const projMousePos = Math::ScreenSpaceToProjectedSpace(
             glm::vec2{ mx, my },
             static_cast<float>(surfaceCapabilities.currentExtent.width),
@@ -203,15 +202,28 @@ void CC_SubdivisionApp::Update()
             glm::inverse(camera->GetProjection()) *
             glm::vec4{ projMousePos.x, projMousePos.y, -1.0f, 1.0f };
 
-        auto const worldMousePos = glm::inverse(camera->GetView()) *
+        glm::vec3 const worldMousePos = glm::inverse(camera->GetView()) *
             glm::vec4{ viewMousePos.x, viewMousePos.y, viewMousePos.z, 1.0f };
 
-        auto const& cameraDirection = camera->GetForward();
+        // TODO: Move this to Math. It can be very useful
+        auto const cameraDirection = glm::normalize(worldMousePos - camera->Getposition());
 
-        rayPoints.emplace_back(glm::vec3{ worldMousePos });
-        rayDirs.emplace_back(glm::normalize(cameraDirection));
-        rayRemLife.emplace_back(1.0f);
-        // TODO: Project to mesh
+        int outTriangleIdx = -1;
+        glm::dvec3 outTrianglePosition{};
+        glm::dvec3 outTriangleNormal{};
+
+        auto hasCollision = Collision::HasContiniousCollision(
+            collisionTriangles, 
+            worldMousePos, 
+			worldMousePos + (cameraDirection * 1000.0f),
+            outTriangleIdx,
+            outTrianglePosition,
+            outTriangleNormal
+		);
+        if (hasCollision == true)
+        {
+            curtainPoints.back().emplace_back(outTrianglePosition + outTriangleNormal * 0.01);
+        }
     }
 }
 
@@ -228,27 +240,22 @@ void CC_SubdivisionApp::Render(MFA::RT::CommandRecordState& recordState)
 
     displayRenderPass->Begin(recordState);
 
-    meshRenderer->Render(recordState, meshRendererOptions);
+    meshRenderer->Render(recordState, meshRendererOptions, std::vector{
+    	MeshRenderer::InstanceOptions {
+	        .fillColor = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f),
+	        .wireFrameColor = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f),
+	        .fillModel = glm::identity<glm::mat4>(),
+            .wireFrameModel = glm::scale(glm::identity<glm::mat4>(), {1.01f, 1.01f, 1.01f})
+		}
+    });
 
-    for (int i = 0; i < static_cast<int>(rayPoints.size()) - 1; ++i)
+    for (auto & points : curtainPoints)
     {
-        lineRenderer->Draw(recordState, rayPoints[i], rayPoints[i + 1], glm::vec4{ 0.0f, 1.0f, 0.0f, 1.0f });
-    }
-    for (int i = 0; i < static_cast<int>(rayPoints.size()); ++i)
-    {
-        rayPoints[i] += rayDirs[i] * 0.01f;
-        rayRemLife[i] -= 0.01f;
-    }
-    for (int i = static_cast<int>(rayPoints.size()) - 1; i >= 0; --i)
-    {
-        if (rayRemLife[i] < 0.0f)
+        for (int i = 0; i < static_cast<int>(points.size()) - 1; ++i)
         {
-            rayPoints.erase(rayPoints.begin() + i);
-            rayRemLife.erase(rayRemLife.begin() + i);
-            rayDirs.erase(rayDirs.begin() + i);
+            lineRenderer->Draw(recordState, points[i], points[i + 1], glm::vec4{ 0.0f, 1.0f, 0.0f, 1.0f });
         }
     }
-
 
     ui->Render(recordState, deltaTimeSec);
 
@@ -282,6 +289,7 @@ void CC_SubdivisionApp::OnUI()
             catmullClarkSubdivide(*subdividedMesh, *subdividedGeometry);
         }
         meshRenderer->UpdateGeometry(subdividedMesh, subdividedGeometry);
+        collisionTriangles = meshRenderer->GetCollisionTriangles(glm::identity<glm::mat4>());
     }
     ui->EndWindow();
 }
@@ -297,12 +305,13 @@ void CC_SubdivisionApp::OnSDL_Event(SDL_Event* event)
     
     if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_RIGHT)
     {
-        _rightMouseDown = true;
-        
+        rightMouseDown = true;
+        curtainPoints.emplace_back();
     }
     else if (event->type == SDL_MOUSEBUTTONUP && event->button.button == SDL_BUTTON_RIGHT)
     {
-        _rightMouseDown = false;
+        rightMouseDown = false;
+        //curtainPoints.clear();
     }
 }
 

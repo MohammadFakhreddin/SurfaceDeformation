@@ -13,16 +13,20 @@
 #include "geometrycentral/surface/manifold_surface_mesh.h"
 #include "geometrycentral/surface/vertex_position_geometry.h"
 #include "pipeline/ColorPipeline.hpp"
-
-#include <memory>
-
 #include "camera/ArcballCamera.hpp"
 #include "camera/ObserverCamera.hpp"
 #include "utils/LineRenderer.hpp"
 
+#include <memory>
+
 class CC_SubdivisionApp
 {
 public:
+
+	using Mesh = geometrycentral::surface::ManifoldSurfaceMesh;
+	using Geometry = geometrycentral::surface::VertexPositionGeometry;
+	using MeshRenderer = shared::SurfaceMeshRenderer;
+	using CollisionTriangle = MFA::CollisionTriangle;
 
     explicit CC_SubdivisionApp();
 
@@ -39,9 +43,6 @@ private:
 	void OnUI();
 
 	void OnSDL_Event(SDL_Event* event);
-
-	using Mesh = geometrycentral::surface::ManifoldSurfaceMesh;
-	using Geometry = geometrycentral::surface::VertexPositionGeometry;
 
 	float deltaTimeSec = 0.0f;
 
@@ -66,19 +67,21 @@ private:
 	std::shared_ptr<Mesh> originalMesh{};
 	std::shared_ptr<Geometry> originalGeometry{};
 
-	std::shared_ptr<shared::SurfaceMeshRenderer> meshRenderer{};
-	shared::SurfaceMeshRenderer::RenderOptions meshRendererOptions{
+	std::shared_ptr<MeshRenderer> meshRenderer{};
+	MeshRenderer::RenderOptions meshRendererOptions{
 		.useWireframe = true
 	};
 
 	std::unique_ptr<MFA::ArcballCamera> camera{};
 	// Options
 	int subdivisionLevel = 0;
+
 	std::shared_ptr<Mesh> subdividedMesh{};
 	std::shared_ptr<Geometry> subdividedGeometry{};
 
-	bool _rightMouseDown = false;
-	std::vector<glm::vec3> rayPoints{};
-	std::vector<glm::vec3> rayDirs{};
-	std::vector<float> rayRemLife{};
+	bool rightMouseDown = false;
+	std::vector<std::vector<glm::vec3>> curtainPoints{};
+
+	std::vector<CollisionTriangle> collisionTriangles{};
+
 };

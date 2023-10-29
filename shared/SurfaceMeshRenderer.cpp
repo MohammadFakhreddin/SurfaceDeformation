@@ -16,16 +16,12 @@ shared::SurfaceMeshRenderer::SurfaceMeshRenderer(
 	std::shared_ptr<Pipeline> colorPipeline,
 	std::shared_ptr<Pipeline> wireFramePipeline,
 	std::shared_ptr<Mesh> mesh,
-	std::shared_ptr<Geometry> geometry,
-	glm::vec4 const& fillColor,
-	glm::vec4 const& wireFrameColor
+	std::shared_ptr<Geometry> geometry
 )
 	: _colorPipeline(std::move(colorPipeline))
 	, _wireFramePipeline(std::move(wireFramePipeline))
 	, _mesh(std::move(mesh))
 	, _geometry(std::move(geometry))
-	, _fillColor(fillColor)
-	, _wireFrameColor(wireFrameColor)
 {
 	UpdateGeometry();
 }
@@ -36,10 +32,11 @@ void shared::SurfaceMeshRenderer::UpdateGeometry()
 {
 	UpdateCpuIndices();
 	UpdateCpuVertices();
-	
+	UpdateCollisionTriangles();
+
 	auto const maxFramePerFlight = LogicalDevice::Instance->GetMaxFramePerFlight();
 	_bufferDirtyCounter = static_cast<int>(maxFramePerFlight);
-	
+
 	_vertexBuffers.resize(maxFramePerFlight);
 	_vertexBufferSizes.resize(maxFramePerFlight);
 
@@ -50,8 +47,9 @@ void shared::SurfaceMeshRenderer::UpdateGeometry()
 //------------------------------------------------------------
 
 void shared::SurfaceMeshRenderer::Render(
-	RecordState & recordState, 
-	RenderOptions const& options
+	RecordState& recordState,
+	RenderOptions const& options,
+	std::vector<InstanceOptions> const& instances
 )
 {
 	if (_bufferDirtyCounter > 0)
@@ -63,7 +61,7 @@ void shared::SurfaceMeshRenderer::Render(
 
 	// Color shading
 	_colorPipeline->BindPipeline(recordState);
-	
+
 	RB::BindIndexBuffer(
 		recordState,
 		*_indexBuffers[recordState.frameIndex],
@@ -78,20 +76,23 @@ void shared::SurfaceMeshRenderer::Render(
 		0
 	);
 
-	_colorPipeline->SetPushConstants(
-		recordState,
-		ColorPipeline::PushConstants{
-			.model = glm::identity<glm::mat4>(),
-			.color = _fillColor
-		}
-	);
+	for (auto const& instance : instances)
+	{
+		_colorPipeline->SetPushConstants(
+			recordState,
+			ColorPipeline::PushConstants{
+				.model = instance.fillModel,
+				.color = instance.fillColor
+			}
+		);
 
-	RB::DrawIndexed(
-		recordState,
-		static_cast<int>(_indices.size()),
-		1,
-		0
-	);
+		RB::DrawIndexed(
+			recordState,
+			static_cast<int>(_indices.size()),
+			1,
+			0
+		);
+	}
 
 	// Wire frame shading
 	if (options.useWireframe == true)
@@ -112,19 +113,23 @@ void shared::SurfaceMeshRenderer::Render(
 			0
 		);
 
-		_wireFramePipeline->SetPushConstants(
-			recordState,
-			Pipeline::PushConstants{
-				.model = glm::scale(glm::identity<glm::mat4>(), {1.01f, 1.01f, 1.01f})
-			}
-		);
+		for (auto const& instance : instances)
+		{
+			_wireFramePipeline->SetPushConstants(
+				recordState,
+				Pipeline::PushConstants{
+					.model = instance.wireFrameModel,
+					.color = instance.wireFrameColor
+				}
+			);
 
-		RB::DrawIndexed(
-			recordState,
-			static_cast<int>(_indices.size()),
-			1,
-			0
-		);
+			RB::DrawIndexed(
+				recordState,
+				static_cast<int>(_indices.size()),
+				1,
+				0
+			);
+		}
 	}
 
 }
@@ -132,7 +137,7 @@ void shared::SurfaceMeshRenderer::Render(
 //------------------------------------------------------------
 
 void shared::SurfaceMeshRenderer::UpdateGeometry(
-	std::shared_ptr<Mesh> mesh, 
+	std::shared_ptr<Mesh> mesh,
 	std::shared_ptr<Geometry> geometry
 )
 {
@@ -143,13 +148,40 @@ void shared::SurfaceMeshRenderer::UpdateGeometry(
 
 //------------------------------------------------------------
 
+std::vector<CollisionTriangle> shared::SurfaceMeshRenderer::GetCollisionTriangles(glm::mat4 const& model) const
+{
+	std::vector<CollisionTriangle> result = _collisionTriangles;
+
+	#pragma omp parallel for
+	for (int i = 0; i < static_cast<int>(result.size()); ++i)
+	{
+		auto& triangle = result[i];
+
+		triangle.normal = glm::normalize(model * glm::vec4{ triangle.normal, 0.0f });
+		triangle.center = model * glm::vec4{ triangle.center, 1.0f };
+
+		for (auto& edgeNormal : triangle.edgeNormals)
+		{
+			edgeNormal = glm::normalize(model * glm::vec4{ edgeNormal, 0.0f });
+		}
+		for (auto& edgeVertex : triangle.edgeVertices)
+		{
+			edgeVertex = model * glm::vec4{ edgeVertex, 1.0f };
+		}
+	}
+
+	return result;
+}
+
+//------------------------------------------------------------
+
 void shared::SurfaceMeshRenderer::UpdateCpuVertices()
 {
 	_vertices.clear();
 	auto const positions = _geometry->vertexPositions;
 	for (auto const& mV : positions.toVector())
 	{
-		_vertices.emplace_back(glm::vec3 {mV.x, mV.y, mV.z});
+		_vertices.emplace_back(glm::vec3{ mV.x, mV.y, mV.z });
 	}
 }
 
@@ -162,7 +194,7 @@ void shared::SurfaceMeshRenderer::UpdateCpuIndices()
 	_triangles.clear();
 
 	auto const faceVertexList = _mesh->getFaceVertexList();
-	for (auto const & faceVertices : faceVertexList)
+	for (auto const& faceVertices : faceVertexList)
 	{
 		if (faceVertices.size() == 3)
 		{
@@ -217,6 +249,29 @@ void shared::SurfaceMeshRenderer::UpdateCpuIndices()
 		{
 			MFA_ASSERT(false);
 		}
+	}
+}
+
+//------------------------------------------------------------
+
+void shared::SurfaceMeshRenderer::UpdateCollisionTriangles()
+{
+	_collisionTriangles.resize(_triangles.size());
+	#pragma omp parallel for
+	for (int i = 0; i < static_cast<int>(_triangles.size()); ++i)
+	{
+		auto [idx0, idx1, idx2] = _triangles[i];
+
+		auto const& v0 = _vertices[idx0].position;
+		auto const& v1 = _vertices[idx1].position;
+		auto const& v2 = _vertices[idx2].position;
+
+		Collision::UpdateCollisionTriangle(
+			v0,
+			v1,
+			v2,
+			_collisionTriangles[i]
+		);
 	}
 }
 
