@@ -12,11 +12,7 @@ namespace MFA
 	ArcballCamera::ArcballCamera(glm::vec3 target)
 	{
 		_target = std::move(target);
-		_radius = glm::length(_position - _target);
-
 		LogicalDevice::Instance->SDL_EventSignal.Register([&](SDL_Event* event)->void{OnSDL_Event(event);});
-
-		
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -124,6 +120,12 @@ namespace MFA
 
 	void ArcballCamera::CalculateViewMat()
 	{
+		auto const camVec = _target - _position;
+
+		_forward = glm::normalize(camVec);
+		_right = glm::normalize(glm::cross(_forward, Math::UpVec3));
+		_up = glm::normalize(glm::cross(_forward, _right));
+
 		_viewMat = glm::lookAt(_position, _target, Math::UpVec3);
 	}
 

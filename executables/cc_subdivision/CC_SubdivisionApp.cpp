@@ -100,12 +100,17 @@ CC_SubdivisionApp::CC_SubdivisionApp()
         glm::vec4(1.0f, 0.0f, 0.0f, 1.0f),
         glm::vec4(1.0f, 1.0f, 1.0f, 1.0f)
     );
+
+    linePipeline = std::make_shared<LinePipeline>(displayRenderPass, cameraBuffer, 10000);
+    lineRenderer = std::make_shared<LineRenderer>(linePipeline);
 }
 
 //-----------------------------------------------------
 
 CC_SubdivisionApp::~CC_SubdivisionApp()
 {
+    lineRenderer.reset();
+    linePipeline.reset();
     meshRenderer.reset();
     colorPipeline.reset();
     wireFramePipeline.reset();
@@ -180,6 +185,34 @@ void CC_SubdivisionApp::Update()
     {
         cameraBufferTracker->SetData(camera->GetViewProjection());
     }
+
+    if (_rightMouseDown == true)
+    {
+        int mx, my;
+        SDL_GetMouseState(&mx, &my);
+
+        auto const surfaceCapabilities = LogicalDevice::Instance->GetSurfaceCapabilities();
+
+        auto const projMousePos = Math::ScreenSpaceToProjectedSpace(
+            glm::vec2{ mx, my },
+            static_cast<float>(surfaceCapabilities.currentExtent.width),
+            static_cast<float>(surfaceCapabilities.currentExtent.height)
+        );
+
+        auto const viewMousePos =
+            glm::inverse(camera->GetProjection()) *
+            glm::vec4{ projMousePos.x, projMousePos.y, -1.0f, 1.0f };
+
+        auto const worldMousePos = glm::inverse(camera->GetView()) *
+            glm::vec4{ viewMousePos.x, viewMousePos.y, viewMousePos.z, 1.0f };
+
+        auto const& cameraDirection = camera->GetForward();
+
+        rayPoints.emplace_back(glm::vec3{ worldMousePos });
+        rayDirs.emplace_back(glm::normalize(cameraDirection));
+        rayRemLife.emplace_back(1.0f);
+        // TODO: Project to mesh
+    }
 }
 
 //-----------------------------------------------------
@@ -196,6 +229,26 @@ void CC_SubdivisionApp::Render(MFA::RT::CommandRecordState& recordState)
     displayRenderPass->Begin(recordState);
 
     meshRenderer->Render(recordState, meshRendererOptions);
+
+    for (int i = 0; i < static_cast<int>(rayPoints.size()) - 1; ++i)
+    {
+        lineRenderer->Draw(recordState, rayPoints[i], rayPoints[i + 1], glm::vec4{ 0.0f, 1.0f, 0.0f, 1.0f });
+    }
+    for (int i = 0; i < static_cast<int>(rayPoints.size()); ++i)
+    {
+        rayPoints[i] += rayDirs[i] * 0.01f;
+        rayRemLife[i] -= 0.01f;
+    }
+    for (int i = static_cast<int>(rayPoints.size()) - 1; i >= 0; --i)
+    {
+        if (rayRemLife[i] < 0.0f)
+        {
+            rayPoints.erase(rayPoints.begin() + i);
+            rayRemLife.erase(rayRemLife.begin() + i);
+            rayDirs.erase(rayDirs.begin() + i);
+        }
+    }
+
 
     ui->Render(recordState, deltaTimeSec);
 
@@ -241,17 +294,15 @@ void CC_SubdivisionApp::OnSDL_Event(SDL_Event* event)
     {
         return;
     }
-    if (event->button.button == SDL_BUTTON_RIGHT)
+    
+    if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_RIGHT)
     {
-        int mx, my;
-        SDL_GetMouseState(&mx, &my);
-
-        if (event->type == SDL_MOUSEBUTTONDOWN)
-        {
-        }
-        else if (event->type == SDL_MOUSEBUTTONUP)
-        {
-        }
+        _rightMouseDown = true;
+        
+    }
+    else if (event->type == SDL_MOUSEBUTTONUP && event->button.button == SDL_BUTTON_RIGHT)
+    {
+        _rightMouseDown = false;
     }
 }
 

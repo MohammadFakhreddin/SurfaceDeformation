@@ -19,6 +19,8 @@ namespace MFA
             glm::vec4 const& color = { 0.0f, 1.0f, 0.0f, 1.0f }
         ) const;
 
+    private:
+
         std::shared_ptr<MFA::LinePipeline> _linePipeline{};
         std::shared_ptr<MFA::RT::BufferAndMemory> _vertexBuffer{};
         std::shared_ptr<MFA::RT::BufferAndMemory> _indexBuffer{};

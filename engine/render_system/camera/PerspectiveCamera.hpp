@@ -19,6 +19,11 @@ namespace MFA
 		glm::mat4 GetViewProjection();
 
 		[[nodiscard]]
+		glm::mat4 GetView();
+
+		glm::mat4 GetProjection();
+
+		[[nodiscard]]
 		bool IsDirty() const;
 
 		[[nodiscard]]

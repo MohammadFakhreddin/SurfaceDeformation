@@ -18,6 +18,7 @@
 
 #include "camera/ArcballCamera.hpp"
 #include "camera/ObserverCamera.hpp"
+#include "utils/LineRenderer.hpp"
 
 class CC_SubdivisionApp
 {
@@ -56,6 +57,9 @@ private:
 	std::shared_ptr<MFA::RT::BufferGroup> cameraBuffer{};
 	std::shared_ptr<MFA::HostVisibleBufferTracker<glm::mat4>> cameraBufferTracker{};
 
+	std::shared_ptr<MFA::LinePipeline> linePipeline{};
+	std::shared_ptr<MFA::LineRenderer> lineRenderer{};
+
 	std::shared_ptr<MFA::ColorPipeline> colorPipeline{};
 	std::shared_ptr<MFA::ColorPipeline> wireFramePipeline{};
 
@@ -73,4 +77,8 @@ private:
 	std::shared_ptr<Mesh> subdividedMesh{};
 	std::shared_ptr<Geometry> subdividedGeometry{};
 
+	bool _rightMouseDown = false;
+	std::vector<glm::vec3> rayPoints{};
+	std::vector<glm::vec3> rayDirs{};
+	std::vector<float> rayRemLife{};
 };
