@@ -16,6 +16,7 @@
 
 #include <memory>
 
+#include "camera/ArcballCamera.hpp"
 #include "camera/ObserverCamera.hpp"
 
 class CC_SubdivisionApp
@@ -66,7 +67,7 @@ private:
 		.useWireframe = true
 	};
 
-	std::unique_ptr<MFA::ObserverCamera> camera{};
+	std::unique_ptr<MFA::ArcballCamera> camera{};
 	// Options
 	int subdivisionLevel = 0;
 	std::shared_ptr<Mesh> subdividedMesh{};

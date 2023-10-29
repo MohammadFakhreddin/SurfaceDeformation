@@ -36,7 +36,7 @@ namespace MFA
 
 		void SetViewDirty();
 
-		void CalculateViewMat();
+		virtual void CalculateViewMat();
 
 		void CalculateProjMat();
 

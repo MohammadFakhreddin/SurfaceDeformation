@@ -18,8 +18,8 @@ CC_SubdivisionApp::CC_SubdivisionApp()
 
     LogicalDevice::InitParams params
     {
-        .windowWidth = 800,
-        .windowHeight = 600,
+        .windowWidth = 1920,
+        .windowHeight = 1080,
         .resizable = true,
         .fullScreen = false,
         .applicationName = "Catmul-Clark subdivison"
@@ -28,7 +28,7 @@ CC_SubdivisionApp::CC_SubdivisionApp()
     device = LogicalDevice::Instantiate(params);
     assert(device->IsValid() == true);
 
-    camera = std::make_unique<ObserverCamera>();
+    camera = std::make_unique<ArcballCamera>();
     
     swapChainResource = std::make_shared<SwapChainRenderResource>();
     depthResource = std::make_shared<DepthRenderResource>();
@@ -233,6 +233,22 @@ void CC_SubdivisionApp::OnUI()
 
 void CC_SubdivisionApp::OnSDL_Event(SDL_Event* event)
 {
+    if (ui->HasFocus() == true)
+    {
+        return;
+    }
+    if (event->button.button == SDL_BUTTON_RIGHT)
+    {
+        int mx, my;
+        SDL_GetMouseState(&mx, &my);
+
+        if (event->type == SDL_MOUSEBUTTONDOWN)
+        {
+        }
+        else if (event->type == SDL_MOUSEBUTTONUP)
+        {
+        }
+    }
 }
 
 //-----------------------------------------------------

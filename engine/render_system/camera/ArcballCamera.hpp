@@ -1,15 +1,18 @@
 #pragma once
+
 #include "PerspectiveCamera.hpp"
+
+#include <SDL2/SDL_events.h>
 
 namespace MFA
 {
-    class ObserverCamera : public PerspectiveCamera
+    class ArcballCamera : public PerspectiveCamera
     {
     public:
 
-        explicit ObserverCamera();
+        explicit ArcballCamera(glm::vec3 target = {});
 
-        ~ObserverCamera();
+        ~ArcballCamera();
 
         void Update(float dtSec);
 
@@ -17,8 +20,12 @@ namespace MFA
 
         void UpdateMousePosition();
 
+        void OnSDL_Event(SDL_Event* event);
+
+        void CalculateViewMat() override;
+
         MFA_VARIABLE1(movementSpeed, float, 10.0f)
-        MFA_VARIABLE1(rotationSpeed, float, 2.5f)
+        MFA_VARIABLE1(rotationSpeed, float, 0.4f)
         MFA_VARIABLE1(movementEnabled, bool, true)
 
         float _mouseX = 0.0f;
@@ -29,6 +36,9 @@ namespace MFA
         bool _leftMouseDown = false;
 
         glm::vec3 _motionButtons{};
+
+        glm::vec3 _target{};
+        float _radius = 0.0f;
 
     };
 }
