@@ -15,6 +15,8 @@ namespace MFA
 		_radius = glm::length(_position - _target);
 
 		LogicalDevice::Instance->SDL_EventSignal.Register([&](SDL_Event* event)->void{OnSDL_Event(event);});
+
+		
 	}
 
 	//-------------------------------------------------------------------------------------------------
@@ -106,41 +108,7 @@ namespace MFA
 	{
 		if (UI::Instance != nullptr && UI::Instance->HasFocus() == true)
 		{
-			_motionButtons = {};
 			_leftMouseDown = false;
-		}
-		else if (event->type == SDL_KEYDOWN || event->type == SDL_KEYUP)
-		{
-			auto modifier = event->type == SDL_KEYDOWN ? 1.0f : -1.0f;
-
-			if (event->key.keysym.sym == SDLK_w)
-			{
-				_motionButtons.z += 1.0f * modifier;
-			}
-			else if (event->key.keysym.sym == SDLK_s)
-			{
-				_motionButtons.z += -1.0f * modifier;
-			}
-			else if (event->key.keysym.sym == SDLK_d)
-			{
-				_motionButtons.x -= 1.0f * modifier;
-			}
-			else if (event->key.keysym.sym == SDLK_a)
-			{
-				_motionButtons.x += 1.0f * modifier;
-			}
-			else if (event->key.keysym.sym == SDLK_q)
-			{
-				_motionButtons.y -= 1.0f * modifier;
-			}
-			else if (event->key.keysym.sym == SDLK_e)
-			{
-				_motionButtons.y += 1.0f * modifier;
-			}
-
-			_motionButtons.x = std::clamp(_motionButtons.x, -1.0f, 1.0f);
-			_motionButtons.y = std::clamp(_motionButtons.y, -1.0f, 1.0f);
-			_motionButtons.z = std::clamp(_motionButtons.z, -1.0f, 1.0f);
 		}
 		else if (event->type == SDL_MOUSEBUTTONDOWN || event->type == SDL_MOUSEBUTTONUP)
 		{

@@ -9,6 +9,10 @@ using namespace geometrycentral::surface;
 using namespace MFA;
 
 //-----------------------------------------------------
+// TODO:
+// 1- Implement zoom in an zoom out.
+// 2- implement curtains by projecting and extracting x y z from mesh by a ray from pixel position to the camera forward direction.
+// 3- Draw by right button.
 
 CC_SubdivisionApp::CC_SubdivisionApp()
 {

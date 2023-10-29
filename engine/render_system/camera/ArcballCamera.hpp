@@ -34,11 +34,8 @@ namespace MFA
         float _mouseRelY = 0.0f;
 
         bool _leftMouseDown = false;
-
-        glm::vec3 _motionButtons{};
-
+        
         glm::vec3 _target{};
-        float _radius = 0.0f;
-
+    
     };
 }
