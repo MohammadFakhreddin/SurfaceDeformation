@@ -37,11 +37,23 @@ void shared::SurfaceMeshRenderer::UpdateGeometry()
 	auto const maxFramePerFlight = LogicalDevice::Instance->GetMaxFramePerFlight();
 	_bufferDirtyCounter = static_cast<int>(maxFramePerFlight);
 
-	_vertexBuffers.resize(maxFramePerFlight);
-	_vertexBufferSizes.resize(maxFramePerFlight);
+	if (_vertexBuffers.size() != maxFramePerFlight)
+	{
+		_vertexBuffers.resize(maxFramePerFlight);
+	}
+	if (_vertexBufferSizes.size() != maxFramePerFlight)
+	{
+		_vertexBufferSizes.resize(maxFramePerFlight);
+	}
 
-	_indexBuffers.resize(maxFramePerFlight);
-	_indexBufferSizes.resize(maxFramePerFlight);
+	if (_indexBuffers.size() != maxFramePerFlight)
+	{
+		_indexBuffers.resize(maxFramePerFlight);
+	}
+	if (_indexBufferSizes.size() != maxFramePerFlight)
+	{
+		_indexBufferSizes.resize(maxFramePerFlight);
+	}
 }
 
 //------------------------------------------------------------

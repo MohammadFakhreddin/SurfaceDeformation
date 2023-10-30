@@ -16,6 +16,7 @@
 #include "camera/ArcballCamera.hpp"
 #include "camera/ObserverCamera.hpp"
 #include "utils/LineRenderer.hpp"
+#include "CurtainMeshRenderer.hpp"
 
 #include <memory>
 
@@ -27,6 +28,7 @@ public:
 	using Geometry = geometrycentral::surface::VertexPositionGeometry;
 	using MeshRenderer = shared::SurfaceMeshRenderer;
 	using CollisionTriangle = MFA::CollisionTriangle;
+	using CurtainRenderer = shared::CurtainMeshRenderer;
 
     explicit CC_SubdivisionApp();
 
@@ -64,10 +66,16 @@ private:
 	std::shared_ptr<MFA::ColorPipeline> colorPipeline{};
 	std::shared_ptr<MFA::ColorPipeline> wireFramePipeline{};
 
+	std::shared_ptr<MFA::ColorPipeline> noCullColorPipeline{};
+	std::shared_ptr<MFA::ColorPipeline> noCullWireFramePipeline{};
+
+
 	std::shared_ptr<Mesh> originalMesh{};
 	std::shared_ptr<Geometry> originalGeometry{};
 
 	std::shared_ptr<MeshRenderer> meshRenderer{};
+	std::shared_ptr<CurtainRenderer> curtainRenderer{};
+
 	MeshRenderer::RenderOptions meshRendererOptions{
 		.useWireframe = true
 	};
@@ -75,13 +83,18 @@ private:
 	std::unique_ptr<MFA::ArcballCamera> camera{};
 	// Options
 	int subdivisionLevel = 0;
+	float curtainHeight = 0.5f;
 
 	std::shared_ptr<Mesh> subdividedMesh{};
 	std::shared_ptr<Geometry> subdividedGeometry{};
 
 	bool rightMouseDown = false;
-	std::vector<std::vector<glm::vec3>> curtainPoints{};
+	std::vector<glm::vec3> curtainPoints{};
+	std::vector<glm::vec3> curtainNormals{};
+	
+	std::vector<CollisionTriangle> meshCollisionTriangles{};
+	std::vector<CollisionTriangle> curtainCollisionTriangles{};
 
-	std::vector<CollisionTriangle> collisionTriangles{};
+	bool curtainDataValid = false;
 
 };

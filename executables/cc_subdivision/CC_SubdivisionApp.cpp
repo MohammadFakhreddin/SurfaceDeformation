@@ -80,6 +80,26 @@ CC_SubdivisionApp::CC_SubdivisionApp()
         }
     );
 
+    noCullColorPipeline = std::make_shared<ColorPipeline>(
+        displayRenderPass,
+        cameraBuffer,
+        ColorPipeline::Params{
+            .cullModeFlags = VK_CULL_MODE_NONE,
+            .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+        }
+    );
+
+    noCullWireFramePipeline = std::make_shared<ColorPipeline>(
+        displayRenderPass,
+        cameraBuffer,
+        ColorPipeline::Params{
+            .cullModeFlags = VK_CULL_MODE_NONE,
+            .topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST,
+            .polygonMode = VK_POLYGON_MODE_LINE,
+        }
+    );
+
+
     device->SDL_EventSignal.Register([&](SDL_Event* event)->void
     {
         OnSDL_Event(event);
@@ -92,13 +112,22 @@ CC_SubdivisionApp::CC_SubdivisionApp()
     subdividedMesh = originalMesh->copy();
     subdividedGeometry = originalGeometry->copy();
 
-    meshRenderer = std::make_shared<shared::SurfaceMeshRenderer>(
+    meshRenderer = std::make_shared<MeshRenderer>(
 		colorPipeline,
         wireFramePipeline,
         subdividedMesh,
         subdividedGeometry
     );
-    collisionTriangles = meshRenderer->GetCollisionTriangles(glm::identity<glm::mat4>());
+    curtainRenderer = std::make_shared<CurtainRenderer>(
+		noCullColorPipeline,
+        noCullWireFramePipeline,
+        std::vector<glm::vec3>{},
+        std::vector<glm::vec3>{},
+        curtainHeight
+    );
+
+	meshCollisionTriangles = meshRenderer->GetCollisionTriangles(glm::identity<glm::mat4>());
+    curtainCollisionTriangles = curtainRenderer->GetCollisionTriangles();
 
     linePipeline = std::make_shared<LinePipeline>(displayRenderPass, cameraBuffer, 10000);
     lineRenderer = std::make_shared<LineRenderer>(linePipeline);
@@ -110,7 +139,10 @@ CC_SubdivisionApp::~CC_SubdivisionApp()
 {
     lineRenderer.reset();
     linePipeline.reset();
+    curtainRenderer.reset();
     meshRenderer.reset();
+    noCullColorPipeline.reset();
+    noCullWireFramePipeline.reset();
     colorPipeline.reset();
     wireFramePipeline.reset();
     cameraBufferTracker.reset();
@@ -213,7 +245,7 @@ void CC_SubdivisionApp::Update()
         glm::dvec3 outTriangleNormal{};
 
         auto hasCollision = Collision::HasContiniousCollision(
-            collisionTriangles, 
+            meshCollisionTriangles, 
             worldMousePos, 
 			worldMousePos + (cameraDirection * 1000.0f),
             outTriangleIdx,
@@ -222,7 +254,8 @@ void CC_SubdivisionApp::Update()
 		);
         if (hasCollision == true)
         {
-            curtainPoints.back().emplace_back(outTrianglePosition + outTriangleNormal * 0.01);
+            curtainPoints.emplace_back(outTrianglePosition);// +outTriangleNormal * 0.01);
+            curtainNormals.emplace_back(outTriangleNormal);
         }
     }
 }
@@ -249,11 +282,23 @@ void CC_SubdivisionApp::Render(MFA::RT::CommandRecordState& recordState)
 		}
     });
 
-    for (auto & points : curtainPoints)
+    if (curtainDataValid == true)
     {
-        for (int i = 0; i < static_cast<int>(points.size()) - 1; ++i)
+        curtainRenderer->Render(recordState, CurtainRenderer::RenderOptions{
+            .fillColor = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f),
+            .wireframeColor = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f)
+        });
+    }
+
+    {
+        for (int i = 0; i < static_cast<int>(curtainPoints.size()) - 1; ++i)
         {
-            lineRenderer->Draw(recordState, points[i], points[i + 1], glm::vec4{ 0.0f, 1.0f, 0.0f, 1.0f });
+            lineRenderer->Draw(
+                recordState, 
+                curtainPoints[i], 
+                curtainPoints[i + 1], 
+                glm::vec4{ 0.0f, 1.0f, 0.0f, 1.0f }
+            );
         }
     }
 
@@ -289,7 +334,7 @@ void CC_SubdivisionApp::OnUI()
             catmullClarkSubdivide(*subdividedMesh, *subdividedGeometry);
         }
         meshRenderer->UpdateGeometry(subdividedMesh, subdividedGeometry);
-        collisionTriangles = meshRenderer->GetCollisionTriangles(glm::identity<glm::mat4>());
+        meshCollisionTriangles = meshRenderer->GetCollisionTriangles(glm::identity<glm::mat4>());
     }
     ui->EndWindow();
 }
@@ -306,12 +351,20 @@ void CC_SubdivisionApp::OnSDL_Event(SDL_Event* event)
     if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_RIGHT)
     {
         rightMouseDown = true;
-        curtainPoints.emplace_back();
+        //curtainPoints.emplace_back();
+        //curtainNormals.emplace_back();
     }
     else if (event->type == SDL_MOUSEBUTTONUP && event->button.button == SDL_BUTTON_RIGHT)
     {
         rightMouseDown = false;
-        //curtainPoints.clear();
+        curtainDataValid = true;
+
+        curtainRenderer->UpdateGeometry(curtainPoints, curtainNormals, curtainHeight);
+        
+        curtainPoints.clear();
+        curtainNormals.clear();
+
+    	//curtainPoints.clear();
     }
 }
 

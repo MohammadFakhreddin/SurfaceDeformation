@@ -16,6 +16,7 @@ namespace shared
     	using Mesh = geometrycentral::surface::ManifoldSurfaceMesh;
         using Geometry = geometrycentral::surface::VertexPositionGeometry;
         using CollisionTriangle = MFA::CollisionTriangle;
+        using Index = uint32_t;
 
     	explicit SurfaceMeshRenderer(
             std::shared_ptr<Pipeline> colorPipeline,
@@ -26,7 +27,7 @@ namespace shared
 
         struct RenderOptions
         {
-            bool useWireframe = false;
+            bool useWireframe = true;
         };
 
         struct InstanceOptions
@@ -66,8 +67,6 @@ namespace shared
         void UpdateIndexBuffer(RecordState const& recordState);
 
     private:
-
-        using Index = uint32_t;
 
         std::shared_ptr<Pipeline> _colorPipeline{};
         std::shared_ptr<Pipeline> _wireFramePipeline{};
