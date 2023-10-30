@@ -114,6 +114,23 @@ namespace MFA
 				_leftMouseDown = modifier;
 			}
 		}
+		else if (event->type == SDL_MOUSEWHEEL)
+		{
+			if (std::abs(event->wheel.y) > 0) // scroll up
+			{
+				// Put code for handling "scroll up" here!
+				auto const camVec = _target - _position;
+				auto const camMag = glm::length(camVec);
+				auto const camDir = camVec / camMag;
+				auto const deltaVec = camDir * std::abs(event->wheel.preciseY) * (event->wheel.preciseY > 0.0f ? 1.0f : -1.0f);
+				auto const deltaMag = glm::length(deltaVec + _position - _target);
+				if (deltaMag >= _minDistance && deltaMag <= _maxDistance)
+				{
+					_position += deltaVec;
+					_isViewDirty = true;
+				}
+			}
+		}
 	}
 
 	//-------------------------------------------------------------------------------------------------
