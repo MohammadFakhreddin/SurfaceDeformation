@@ -9,10 +9,14 @@ using namespace MFA;
 using namespace shared;
 
 //-----------------------------------------------------
-// TODO:
-// 1- Implement zoom in an zoom out.
-// 2- implement curtains by projecting and extracting x y z from mesh by a ray from pixel position to the camera forward direction.
-// 3- Draw by right button.
+// 1- Implement zoom in an zoom out. (Done)
+// 2- implement curtains by projecting and extracting x y z from mesh by a ray from pixel position to the camera forward direction. (Done)
+// 3- Draw by right button. (Done)
+// 4- Draw on curtain (Done)
+// 5- Clear curtain (Done)
+// 6- Sample points with a delta
+// 7- Deform mesh using a button
+// 8- Basis function for larger subdivision
 
 CC_SubdivisionApp::CC_SubdivisionApp()
 {
@@ -244,8 +248,23 @@ void CC_SubdivisionApp::Update()
         glm::dvec3 outTrianglePosition{};
         glm::dvec3 outTriangleNormal{};
 
-        auto hasCollision = Collision::HasContiniousCollision(
-            meshCollisionTriangles, 
+        std::vector<CollisionTriangle>* collisionTriangles = nullptr;
+        switch (_drawMode)
+        {
+            case DrawMode::OnCurtain:
+            {
+                collisionTriangles = &curtainCollisionTriangles;
+            }
+            break;
+            case DrawMode::OnMesh:
+            {
+                collisionTriangles = &meshCollisionTriangles;
+            }
+            break;
+        }
+
+        auto const hasCollision = Collision::HasContiniousCollision(
+            *collisionTriangles,
             worldMousePos, 
 			worldMousePos + (cameraDirection * 1000.0f),
             outTriangleIdx,
@@ -254,8 +273,8 @@ void CC_SubdivisionApp::Update()
 		);
         if (hasCollision == true)
         {
-            curtainPoints.emplace_back(outTrianglePosition);// +outTriangleNormal * 0.01);
-            curtainNormals.emplace_back(outTriangleNormal);
+            rayCastPoints.emplace_back(outTrianglePosition);
+            rayCastNormals.emplace_back(outTriangleNormal);
         }
     }
 }
@@ -282,7 +301,7 @@ void CC_SubdivisionApp::Render(MFA::RT::CommandRecordState& recordState)
 		}
     });
 
-    if (curtainDataValid == true)
+    if (_drawMode == DrawMode::OnCurtain)
     {
         curtainRenderer->Render(recordState, CurtainRenderer::RenderOptions{
             .fillColor = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f),
@@ -291,12 +310,18 @@ void CC_SubdivisionApp::Render(MFA::RT::CommandRecordState& recordState)
     }
 
     {
-        for (int i = 0; i < static_cast<int>(curtainPoints.size()) - 1; ++i)
+        for (int i = 0; i < static_cast<int>(rayCastPoints.size()) - 1; ++i)
         {
             lineRenderer->Draw(
                 recordState, 
-                curtainPoints[i], 
-                curtainPoints[i + 1], 
+                rayCastPoints[i] + rayCastNormals[i] * 0.01f,
+                rayCastPoints[i + 1] + rayCastNormals[i] * 0.01f,
+                glm::vec4{ 0.0f, 1.0f, 0.0f, 1.0f }
+            );
+            lineRenderer->Draw(
+                recordState,
+                rayCastPoints[i] - rayCastNormals[i] * 0.01f,
+                rayCastPoints[i + 1] - rayCastNormals[i] * 0.01f,
                 glm::vec4{ 0.0f, 1.0f, 0.0f, 1.0f }
             );
         }
@@ -333,8 +358,21 @@ void CC_SubdivisionApp::OnUI()
         {
             catmullClarkSubdivide(*subdividedMesh, *subdividedGeometry);
         }
+
         meshRenderer->UpdateGeometry(subdividedMesh, subdividedGeometry);
         meshCollisionTriangles = meshRenderer->GetCollisionTriangles(glm::identity<glm::mat4>());
+        _drawMode = DrawMode::OnMesh;
+    }
+    if (ImGui::InputFloat("Curtain height", &curtainHeight))
+    {
+        curtainHeight = std::clamp(curtainHeight, 0.01f, 10.0f);
+    	curtainRenderer->UpdateGeometry(rayCastPoints, rayCastNormals, curtainHeight);
+    }
+    if (ImGui::Button("Clear curtain"))
+    {
+        rayCastPoints.clear();
+        rayCastNormals.clear();
+        _drawMode = DrawMode::OnMesh;
     }
     ui->EndWindow();
 }
@@ -351,20 +389,20 @@ void CC_SubdivisionApp::OnSDL_Event(SDL_Event* event)
     if (event->type == SDL_MOUSEBUTTONDOWN && event->button.button == SDL_BUTTON_RIGHT)
     {
         rightMouseDown = true;
-        //curtainPoints.emplace_back();
-        //curtainNormals.emplace_back();
+        rayCastPoints.clear();
+        rayCastNormals.clear();
     }
     else if (event->type == SDL_MOUSEBUTTONUP && event->button.button == SDL_BUTTON_RIGHT)
     {
         rightMouseDown = false;
-        curtainDataValid = true;
 
-        curtainRenderer->UpdateGeometry(curtainPoints, curtainNormals, curtainHeight);
-        
-        curtainPoints.clear();
-        curtainNormals.clear();
-
-    	//curtainPoints.clear();
+        if (_drawMode == DrawMode::OnMesh)
+        {
+            // TODO: Sample points before using them directly
+            curtainRenderer->UpdateGeometry(rayCastPoints, rayCastNormals, curtainHeight);
+            curtainCollisionTriangles = curtainRenderer->GetCollisionTriangles();
+            _drawMode = DrawMode::OnCurtain;
+        }
     }
 }
 

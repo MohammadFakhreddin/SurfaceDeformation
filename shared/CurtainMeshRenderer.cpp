@@ -118,6 +118,7 @@ namespace shared
 		float const curtainHeight
 	)
 	{
+		// TODO: Sample points first
 		_surfacePoints = std::move(surfacePoints);
 		_surfaceNormals = std::move(surfaceNormals);
 		_curtainHeight = curtainHeight;
@@ -181,16 +182,31 @@ namespace shared
 	{
 		int const pointCount = static_cast<int>(_surfacePoints.size());
 		_indices.clear();
+		_triangles.clear();
 		for (int i = 0; i < pointCount - 1; ++i)
 		{
-			// Triangle0
-			_indices.emplace_back(i);
-			_indices.emplace_back(i + 1);
-			_indices.emplace_back(i + pointCount);
-			// Triangle1
-			_indices.emplace_back(i + pointCount);
-			_indices.emplace_back(i + 1 + pointCount);
-			_indices.emplace_back(i + 1);
+			{// Triangle0
+				int id0 = i;
+				int id1 = i + 1;
+				int id2 = i + pointCount;
+
+				_indices.emplace_back(id0);
+				_indices.emplace_back(id1);
+				_indices.emplace_back(id2);
+
+				_triangles.emplace_back(std::tuple{ id0, id1, id2 });
+			}
+			{// Triangle1
+				int id0 = i + pointCount;
+				int id1 = i + 1 + pointCount;
+				int id2 = i + 1;
+
+				_indices.emplace_back(id0);
+				_indices.emplace_back(id1);
+				_indices.emplace_back(id2);
+
+				_triangles.emplace_back(std::tuple{ id0, id1, id2 });
+			}
 		}
 	}
 

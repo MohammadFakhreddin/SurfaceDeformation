@@ -89,12 +89,17 @@ private:
 	std::shared_ptr<Geometry> subdividedGeometry{};
 
 	bool rightMouseDown = false;
-	std::vector<glm::vec3> curtainPoints{};
-	std::vector<glm::vec3> curtainNormals{};
-	
+
+	std::vector<glm::vec3> rayCastPoints{};
+	std::vector<glm::vec3> rayCastNormals{};
+
 	std::vector<CollisionTriangle> meshCollisionTriangles{};
 	std::vector<CollisionTriangle> curtainCollisionTriangles{};
-
-	bool curtainDataValid = false;
-
+	
+	enum class DrawMode
+	{
+		OnMesh,
+		OnCurtain
+	};
+	DrawMode _drawMode = DrawMode::OnMesh;
 };
