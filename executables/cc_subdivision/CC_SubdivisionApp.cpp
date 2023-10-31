@@ -361,7 +361,7 @@ void CC_SubdivisionApp::OnUI()
 
         meshRenderer->UpdateGeometry(subdividedMesh, subdividedGeometry);
         meshCollisionTriangles = meshRenderer->GetCollisionTriangles(glm::identity<glm::mat4>());
-        _drawMode = DrawMode::OnMesh;
+        ClearCurtain();
     }
     if (ImGui::InputFloat("Curtain height", &curtainHeight))
     {
@@ -370,9 +370,7 @@ void CC_SubdivisionApp::OnUI()
     }
     if (ImGui::Button("Clear curtain"))
     {
-        rayCastPoints.clear();
-        rayCastNormals.clear();
-        _drawMode = DrawMode::OnMesh;
+        ClearCurtain();
     }
     ui->EndWindow();
 }
@@ -404,6 +402,15 @@ void CC_SubdivisionApp::OnSDL_Event(SDL_Event* event)
             _drawMode = DrawMode::OnCurtain;
         }
     }
+}
+
+//-----------------------------------------------------
+
+void CC_SubdivisionApp::ClearCurtain()
+{
+    _drawMode = DrawMode::OnMesh;
+    rayCastPoints.clear();
+    rayCastNormals.clear();
 }
 
 //-----------------------------------------------------

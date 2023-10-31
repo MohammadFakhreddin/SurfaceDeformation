@@ -46,6 +46,8 @@ private:
 
 	void OnSDL_Event(SDL_Event* event);
 
+	void ClearCurtain();
+
 	float deltaTimeSec = 0.0f;
 
 	// Render parameters
