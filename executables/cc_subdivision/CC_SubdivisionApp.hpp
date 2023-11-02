@@ -86,6 +86,7 @@ private:
 	// Options
 	int subdivisionLevel = 0;
 	float curtainHeight = 0.5f;
+	float deltaS = 0.1f;
 
 	std::shared_ptr<Mesh> subdividedMesh{};
 	std::shared_ptr<Geometry> subdividedGeometry{};
@@ -94,6 +95,9 @@ private:
 
 	std::vector<glm::vec3> rayCastPoints{};
 	std::vector<glm::vec3> rayCastNormals{};
+
+	std::vector<glm::vec3> sampledPoints{};
+	std::vector<glm::vec3> sampledNormals{};
 
 	std::vector<CollisionTriangle> meshCollisionTriangles{};
 	std::vector<CollisionTriangle> curtainCollisionTriangles{};

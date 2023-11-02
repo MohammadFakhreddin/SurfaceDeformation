@@ -1,4 +1,4 @@
-#include "Sampler.hpp"
+#include "Curve.hpp"
 
 #include <glm/glm.hpp>
 
@@ -56,7 +56,7 @@ namespace shared::Curve
 		auto const& prevPosition = _points[prevSegment];
 		auto const& prevNormal = _normals[prevSegment];
 
-		auto const nextSegment = segmentIdx;
+		auto const nextSegment = segmentIdx + 1;
 		auto const nextDistance = _distances[nextSegment];
 		auto const& nextPosition = _points[nextSegment];
 		auto const& nextNormal = _normals[nextSegment];
@@ -79,14 +79,26 @@ namespace shared::Curve
 	void UniformSample(
 		std::vector<glm::vec3> const& inputPoints,
 		std::vector<glm::vec3> const& inputNormals,
-		std::vector<glm::vec3> const& outputPoints,
-		std::vector<glm::vec3> const& outputNormals,
-		float deltaS
+		std::vector<glm::vec3>& outputPoints,
+		std::vector<glm::vec3>& outputNormals,
+		float const deltaS
 	)
 	{
+		outputPoints.clear();
+		outputNormals.clear();
+
 		LinearCurve curve{ inputPoints, inputNormals };
 
-		//curve.Sample()
+		float const totalS = curve.GetTotalDistance();
+
+		float currentS = 0.0f;
+		while (currentS <= totalS)
+		{
+			outputPoints.emplace_back();
+			outputNormals.emplace_back();
+			curve.Sample(currentS, outputPoints.back(), outputNormals.back());
+			currentS += deltaS;
+		}
 	}
 
 	//-------------------------------------------------------------------------------------------------

@@ -38,8 +38,8 @@ namespace shared::Curve
 		std::vector<glm::vec3> const & inputPoints,
 		std::vector<glm::vec3> const & inputNormals,
 
-		std::vector<glm::vec3> const & outputPoints,
-		std::vector<glm::vec3> const & outputNormals,
+		std::vector<glm::vec3> & outputPoints,
+		std::vector<glm::vec3> & outputNormals,
 
 		float deltaS
 	);

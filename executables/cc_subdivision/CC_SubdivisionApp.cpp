@@ -2,6 +2,7 @@
 
 #include "geometrycentral/surface/meshio.h"
 #include "geometrycentral/surface/subdivide.h"
+#include "Curve.hpp"
 
 using namespace geometrycentral::surface;
 
@@ -371,7 +372,11 @@ void CC_SubdivisionApp::OnUI()
     if (ImGui::InputFloat("Curtain height", &curtainHeight))
     {
         curtainHeight = std::clamp(curtainHeight, 0.01f, 10.0f);
-    	curtainRenderer->UpdateGeometry(rayCastPoints, rayCastNormals, curtainHeight);
+    	curtainRenderer->UpdateGeometry(sampledPoints, sampledNormals, curtainHeight);
+    }
+    if (ImGui::InputFloat("Delta s", &deltaS))
+    {
+        deltaS = std::max(deltaS, 0.01f);
     }
     if (ImGui::Button("Clear curtain"))
     {
@@ -401,10 +406,18 @@ void CC_SubdivisionApp::OnSDL_Event(SDL_Event* event)
 
         if (_drawMode == DrawMode::OnMesh)
         {
-            // TODO: Sample points before using them directly
-            curtainRenderer->UpdateGeometry(rayCastPoints, rayCastNormals, curtainHeight);
+            Curve::UniformSample(
+                rayCastPoints, 
+                rayCastNormals, 
+                sampledPoints, 
+                sampledNormals, 
+                deltaS
+            );
+
+            curtainRenderer->UpdateGeometry(sampledPoints, sampledNormals, curtainHeight);
             curtainCollisionTriangles = curtainRenderer->GetCollisionTriangles();
-            _drawMode = DrawMode::OnCurtain;
+
+        	_drawMode = DrawMode::OnCurtain;
         }
     }
 }
