@@ -915,6 +915,8 @@ namespace MFA::Math
 		
 		auto const coordMat = triMat.inverse() * pointMat;
 
+		MFA_ASSERT(((coordMat.x() + coordMat.y() + coordMat.z()) == 1.0f));
+
 		return glm::vec3{ coordMat(0, 0), coordMat(1, 0), coordMat(2, 0) };
 	}
 
