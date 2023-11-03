@@ -263,4 +263,12 @@ namespace MFA::Math
     [[nodiscard]]
     glm::dmat3 SkewSymmetricMatrix(glm::dvec3 const& a);
 
+    [[nodiscard]]
+    glm::vec3 FindBarycentricCoordinate(
+        glm::vec3 const & point, 
+        glm::vec3 const & triV0,
+        glm::vec3 const & triV1,
+        glm::vec3 const & triV2
+    );
+
 }
