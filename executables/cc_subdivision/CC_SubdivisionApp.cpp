@@ -249,16 +249,19 @@ void CC_SubdivisionApp::Update()
         glm::dvec3 outTriangleNormal{};
 
         std::vector<CollisionTriangle>* collisionTriangles = nullptr;
-        switch (_drawMode)
+        bool checkForBackCollision = false;
+    	switch (_drawMode)
         {
             case DrawMode::OnCurtain:
             {
                 collisionTriangles = &curtainCollisionTriangles;
+                checkForBackCollision = true;
             }
             break;
             case DrawMode::OnMesh:
             {
                 collisionTriangles = &meshCollisionTriangles;
+                checkForBackCollision = false;
             }
             break;
         }
@@ -269,8 +272,10 @@ void CC_SubdivisionApp::Update()
 			worldMousePos + (cameraDirection * 1000.0f),
             outTriangleIdx,
             outTrianglePosition,
-            outTriangleNormal
+            outTriangleNormal,
+            checkForBackCollision
 		);
+
         if (hasCollision == true)
         {
             rayCastPoints.emplace_back(outTrianglePosition);

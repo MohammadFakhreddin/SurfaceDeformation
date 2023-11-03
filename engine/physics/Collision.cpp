@@ -111,13 +111,14 @@ namespace MFA::Collision
 		glm::dvec3 const& nextPos,
 		int& outTriangleIdx,
 		glm::dvec3& outTrianglePosition,
-		glm::dvec3& outTriangleNormal
+		glm::dvec3& outTriangleNormal,
+		bool checkForBackCollision
 	)
 	{
 		int collisionCount = 0;
 		double leastTime = -1.0;
 		// We need to choose closest triangle
-		for (int i = 0; i < triangles.size(); ++i)
+		for (int i = 0; i < static_cast<int>(triangles.size()); ++i)
 		{
 			auto const& triangle = triangles[i];
 
@@ -131,7 +132,7 @@ namespace MFA::Collision
 				collisionPos,
 				time,
 				0.0,
-				false
+				checkForBackCollision
 			))
 			{
 				++collisionCount;

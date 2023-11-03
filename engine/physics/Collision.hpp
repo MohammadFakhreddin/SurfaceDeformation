@@ -86,7 +86,8 @@ namespace MFA::Collision
         glm::dvec3 const& nextPos,
         int& outTriangleIdx,
         glm::dvec3& outTrianglePosition,
-        glm::dvec3& outTriangleNormal
+        glm::dvec3& outTriangleNormal,
+        bool checkForBackCollision = false
     );
 
     [[nodiscard]]
