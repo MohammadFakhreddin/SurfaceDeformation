@@ -48,6 +48,8 @@ private:
 
 	void ClearCurtain();
 
+	void DeformMesh();
+
 	float deltaTimeSec = 0.0f;
 
 	// Render parameters

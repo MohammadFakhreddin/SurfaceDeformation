@@ -378,9 +378,16 @@ void CC_SubdivisionApp::OnUI()
     {
         deltaS = std::max(deltaS, 0.01f);
     }
-    if (ImGui::Button("Clear curtain"))
+    if (_drawMode == DrawMode::OnCurtain)
     {
-        ClearCurtain();
+        if (ImGui::Button("Clear curtain"))
+        {
+            ClearCurtain();
+        }
+        if (ImGui::Button("Deform mesh"))
+        {
+            DeformMesh();
+        }
     }
     ui->EndWindow();
 }
@@ -417,6 +424,12 @@ void CC_SubdivisionApp::OnSDL_Event(SDL_Event* event)
             curtainRenderer->UpdateGeometry(sampledPoints, sampledNormals, curtainHeight);
             curtainCollisionTriangles = curtainRenderer->GetCollisionTriangles();
 
+            sampledPoints.clear();
+            sampledNormals.clear();
+
+            rayCastPoints.clear();
+            rayCastNormals.clear();
+
         	_drawMode = DrawMode::OnCurtain;
         }
     }
@@ -429,6 +442,12 @@ void CC_SubdivisionApp::ClearCurtain()
     _drawMode = DrawMode::OnMesh;
     rayCastPoints.clear();
     rayCastNormals.clear();
+}
+
+//-----------------------------------------------------
+
+void CC_SubdivisionApp::DeformMesh()
+{
 }
 
 //-----------------------------------------------------
