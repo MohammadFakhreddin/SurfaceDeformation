@@ -61,6 +61,11 @@ private:
 
 	void ProjectCurtainPoints();
 
+	void CalcVertexToPointContribution(
+		std::vector<glm::vec3> & outVertices,
+		std::vector<std::tuple<int, int, float>> & outVToPContrib
+	) const;
+
 	void ClearRaycastPoints();
 	
 	void ClearPorjectedPoints();
@@ -105,7 +110,7 @@ private:
 	// Options
 	int subdivisionLevel = 0;
 	float curtainHeight = 0.5f;
-	float deltaS = 0.1f;
+	float deltaS = 0.001f;
 
 	std::shared_ptr<Mesh> subdividedMesh{};
 	std::shared_ptr<Geometry> subdividedGeometry{};
