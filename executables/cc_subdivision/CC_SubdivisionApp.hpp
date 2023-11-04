@@ -65,6 +65,8 @@ private:
 	
 	void ClearPorjectedPoints();
 
+	void ClearSamplePoints();
+
 	float deltaTimeSec = 0.0f;
 
 	// Render parameters
@@ -117,6 +119,9 @@ private:
 	std::vector<glm::dvec3> projPoints{};
 	std::vector<glm::dvec3> projNormals{};
 	std::vector<int> projTriIndices{};
+
+	std::vector<glm::vec3> sampledPoints{};
+	std::vector<glm::vec3> sampledNormals{};
 
 	std::vector<CollisionTriangle> meshCollisionTriangles{};
 	std::vector<CollisionTriangle> curtainCollisionTriangles{};

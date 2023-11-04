@@ -357,8 +357,7 @@ void CC_SubdivisionApp::OnSDL_Event(SDL_Event* event)
 
         if (drawMode == DrawMode::OnMesh)
         {
-            std::vector<glm::vec3> sampledPoints{};
-            std::vector<glm::vec3> sampledNormals{};
+            ClearSamplePoints();
 
             Curve::UniformSample(
                 rayCastPoints, 
@@ -430,24 +429,35 @@ void CC_SubdivisionApp::DeformMesh()
         vertexToPointContribution.emplace_back(std::tuple{ FindVertexIdx(v0), i, coordinate.x });
         vertexToPointContribution.emplace_back(std::tuple{ FindVertexIdx(v1), i, coordinate.y });
         vertexToPointContribution.emplace_back(std::tuple{ FindVertexIdx(v2), i, coordinate.z });
-
-		//https://eigen.tuxfamily.org/dox-devel/group__LeastSquares.html
-        // I either have to solve it three times or combine them in one giant matrix
-		Eigen::MatrixXf B(projPoints.size(), vertices.size());
-        B.setZero();
-        /*for (auto & [vIdx, pIdx, value] : vertexToPointContribution)
-        {
-            MFA_ASSERT(B(vIdx, pIdx) == 0.0f);
-            B(vIdx, pIdx) = value;
-        }
-
-        auto const A = B.transpose() * B;
-        Eigen::MatrixXf b (projPoints.size(), 1);
-        for (int i = 0; i < projPoints.size(); ++i)
-        {
-            b(i, 0) = projPoints[i];
-        }*/
     }
+
+    //https://eigen.tuxfamily.org/dox-devel/group__LeastSquares.html
+    // I either have to solve it three times or combine them in one giant matrix
+    Eigen::MatrixXf B(projPoints.size(), vertices.size());
+    B.setZero();
+
+    for (auto& [vIdx, pIdx, value] : vertexToPointContribution)
+    {
+        MFA_ASSERT(B(pIdx, vIdx) == 0.0f);
+        B(pIdx, vIdx) = value;
+    }
+
+    auto const BT = B.transpose();
+    auto const A = BT * B;
+
+    Eigen::MatrixXf bx(projPoints.size(), 1);
+    Eigen::MatrixXf by(projPoints.size(), 1);
+    Eigen::MatrixXf bz(projPoints.size(), 1);
+    for (int i = 0; i < static_cast<int>(projPoints.size()); ++i)
+    {
+        bx(i, 0) = sampledPoints[i].x - projPoints[i].x;
+        by(i, 0) = sampledPoints[i].y - projPoints[i].y;
+        bz(i, 0) = sampledPoints[i].z - projPoints[i].z;
+    }
+
+    auto const Dx = svd.solve(BT * bx);
+    auto const Dy = svd.solve(BT * by);
+    auto const Dz = svd.solve(BT * bz);
 }
 
 //-----------------------------------------------------
@@ -551,23 +561,25 @@ void CC_SubdivisionApp::ProjectCurtainPoints()
         projDirections.emplace_back(curtainRenderer->GetTriangleProjectionDirection(rayCastTriIndex));
     }
 
-    std::vector<glm::vec3> sampledPoints{};
-    std::vector<glm::vec3> sampledProjDirs{};
+    ClearSamplePoints();
+
+    std::vector<glm::vec3> allSampledPoints{};
+    std::vector<glm::vec3> allSampledNormals{};
 
     Curve::UniformSample(
         rayCastPoints,
         projDirections,
-        sampledPoints,
-        sampledProjDirs,
+        allSampledPoints,
+        allSampledNormals,
         deltaS
     );
 
     ClearPorjectedPoints();
-   
-    for (int i = 0; i < static_cast<int>(sampledPoints.size()); ++i)
+
+    for (int i = 0; i < static_cast<int>(allSampledPoints.size()); ++i)
     {
-        auto const prevPoint = sampledPoints[i];
-        auto const nextPoint = sampledPoints[i] + (sampledProjDirs[i] * 1000.0f);
+        auto const prevPoint = allSampledPoints[i];
+        auto const nextPoint = allSampledPoints[i] + (allSampledNormals[i] * 1000.0f);
 
         int triIdx{};
         glm::dvec3 colPosition{};
@@ -588,6 +600,9 @@ void CC_SubdivisionApp::ProjectCurtainPoints()
             projPoints.emplace_back(colPosition);
             projNormals.emplace_back(colNormal);
             projTriIndices.emplace_back(triIdx);
+
+            sampledPoints.emplace_back(allSampledPoints[i]);
+            sampledNormals.emplace_back(allSampledNormals[i]);
         }
     }
 }
@@ -608,6 +623,14 @@ void CC_SubdivisionApp::ClearPorjectedPoints()
     projPoints.clear();
     projNormals.clear();
     projTriIndices.clear();
+}
+
+//-----------------------------------------------------
+
+void CC_SubdivisionApp::ClearSamplePoints()
+{
+    sampledPoints.clear();
+    sampledNormals.clear();
 }
 
 //-----------------------------------------------------
