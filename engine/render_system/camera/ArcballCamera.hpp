@@ -14,7 +14,7 @@ namespace MFA
 
         ~ArcballCamera();
 
-        void Update(float dtSec);
+        void Update(float dtSec) override;
 
     protected:
 

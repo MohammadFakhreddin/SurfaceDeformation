@@ -36,6 +36,8 @@ namespace shared
             glm::vec4 wireFrameColor{};
             glm::mat4 fillModel{};
             glm::mat4 wireFrameModel{};
+            glm::vec4 lightColor{};
+            glm::vec4 lightPosition{};
         };
 
         void Render(
@@ -85,7 +87,8 @@ namespace shared
         std::vector<size_t> _indexBufferSizes{};
 
         std::vector<std::tuple<int, int, int>> _triangles{};
-        std::unordered_map<int, std::vector<int>> _vertexNeighbourTriangles{}; // Not used
+        std::unordered_map<int, std::vector<int>> _vertexNeighbourTriangles{};
+        std::vector<glm::vec3> _triangleNormals{};
 
         std::vector<CollisionTriangle> _collisionTriangles{};
 

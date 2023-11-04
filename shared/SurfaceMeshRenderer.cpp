@@ -94,7 +94,9 @@ void shared::SurfaceMeshRenderer::Render(
 			recordState,
 			ColorPipeline::PushConstants{
 				.model = instance.fillModel,
-				.color = instance.fillColor
+				.materialColor = instance.fillColor,
+				.lightPosition = instance.lightPosition,
+				.lightColor = instance.lightColor,
 			}
 		);
 
@@ -131,7 +133,9 @@ void shared::SurfaceMeshRenderer::Render(
 				recordState,
 				Pipeline::PushConstants{
 					.model = instance.wireFrameModel,
-					.color = instance.wireFrameColor
+					.materialColor = instance.wireFrameColor,
+					.lightPosition = instance.lightPosition,
+					.lightColor = instance.lightColor
 				}
 			);
 
@@ -190,10 +194,36 @@ std::vector<CollisionTriangle> shared::SurfaceMeshRenderer::GetCollisionTriangle
 void shared::SurfaceMeshRenderer::UpdateCpuVertices()
 {
 	_vertices.clear();
-	auto const positions = _geometry->vertexPositions;
-	for (auto const& mV : positions.toVector())
+	_triangleNormals.clear();
+
+	auto const positions = _geometry->vertexPositions.toVector();
+
+	for (int i = 0; i < static_cast<int>(_triangles.size()); ++i)
 	{
-		_vertices.emplace_back(glm::vec3{ mV.x, mV.y, mV.z });
+		auto const& [idx0, idx1, idx2] = _triangles[i];
+
+		glm::vec3 const v0 = glm::vec3{ positions[idx0].x, positions[idx0].y, positions[idx0].z };
+		glm::vec3 const v1 = glm::vec3{ positions[idx1].x, positions[idx1].y, positions[idx1].z };
+		glm::vec3 const v2 = glm::vec3{ positions[idx2].x, positions[idx2].y, positions[idx2].z };
+
+		auto const cross = glm::normalize(glm::cross(v1 - v0, v2 - v1));
+
+		_triangleNormals.emplace_back(cross);
+	}
+
+	for (int vIdx = 0; vIdx < positions.size(); ++vIdx)
+	{
+		glm::vec3 normal{};
+		for (auto const& triIdx : _vertexNeighbourTriangles[vIdx])
+		{
+			normal += _triangleNormals[triIdx];
+		}
+		normal = glm::normalize(normal);
+		
+		_vertices.emplace_back(Pipeline::Vertex{
+			.position = glm::vec3 {positions[vIdx].x, positions[vIdx].y, positions[vIdx].z},
+			.normal = normal
+		});
 	}
 }
 
@@ -204,7 +234,7 @@ void shared::SurfaceMeshRenderer::UpdateCpuIndices()
 	_indices.clear();
 	_vertexNeighbourTriangles.clear();
 	_triangles.clear();
-
+	
 	auto const faceVertexList = _mesh->getFaceVertexList();
 	for (auto const& faceVertices : faceVertexList)
 	{

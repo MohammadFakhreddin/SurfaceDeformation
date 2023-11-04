@@ -11,7 +11,7 @@ namespace MFA
 
         ~ObserverCamera();
 
-        void Update(float dtSec);
+        void Update(float dtSec) override;
 
     protected:
 

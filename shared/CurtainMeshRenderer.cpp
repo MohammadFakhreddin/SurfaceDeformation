@@ -63,7 +63,9 @@ namespace shared
 			recordState,
 			ColorPipeline::PushConstants{
 				.model = glm::identity<glm::mat4>(),
-				.color = options.fillColor
+				.materialColor = options.fillColor,
+				.lightPosition = options.lightPosition,
+				.lightColor = options.lightColor,
 			}
 		);
 
@@ -97,7 +99,9 @@ namespace shared
 				recordState,
 				Pipeline::PushConstants{
 					.model = glm::identity<glm::mat4>(),
-					.color = options.wireframeColor
+					.materialColor = options.wireframeColor,
+					.lightPosition = options.lightPosition,
+					.lightColor = options.lightColor,
 				}
 			);
 
@@ -195,12 +199,39 @@ namespace shared
 
 	void CurtainMeshRenderer::UpdateCpuVertices()
 	{
+		_triangleNormals.clear();
+
 		int const pointCount = static_cast<int>(_surfacePoints.size());
 		_vertices.resize(pointCount * 2);
 		for (int i = 0; i < pointCount; ++i)
 		{
 			_vertices[i].position = _surfacePoints[i];
 			_vertices[i + pointCount].position = _surfacePoints[i] + _surfaceNormals[i] * _curtainHeight;
+		}
+
+		for (int i = 0; i < static_cast<int>(_triangles.size()); ++i)
+		{
+			auto const& [idx0, idx1, idx2] = _triangles[i];
+
+			glm::vec3 const& v0 = _vertices[idx0].position;
+			glm::vec3 const& v1 = _vertices[idx1].position;
+			glm::vec3 const& v2 = _vertices[idx2].position;
+
+			auto const cross = glm::normalize(glm::cross(v1 - v0, v2 - v1));
+
+			_triangleNormals.emplace_back(cross);
+		}
+
+		for (int vIdx = 0; vIdx < static_cast<int>(_vertices.size()); ++vIdx)
+		{
+			glm::vec3 normal{};
+			for (auto const& triIdx : _vertexNeighbourTriangles[vIdx])
+			{
+				normal += _triangleNormals[triIdx];
+			}
+			normal = glm::normalize(normal);
+
+			_vertices[vIdx].normal = normal;
 		}
 	}
 
@@ -212,8 +243,11 @@ namespace shared
 		_indices.clear();
 		_triangles.clear();
 		_triProjDir.clear();
+		_vertexNeighbourTriangles.clear();
+
 		for (int i = 0; i < pointCount - 1; ++i)
 		{
+			// TODO: I think this part is wrong
 			auto const projDir = glm::normalize(- 1.0f * ((0.5f * _surfaceNormals[i]) + (0.5f * _surfaceNormals[i + 1])));
 			{// Triangle0
 				int id0 = i;
@@ -226,6 +260,10 @@ namespace shared
 
 				_triangles.emplace_back(std::tuple{ id0, id1, id2 });
 				_triProjDir.emplace_back(projDir);
+
+				_vertexNeighbourTriangles[id0].emplace_back(_triangles.size() - 1);
+				_vertexNeighbourTriangles[id1].emplace_back(_triangles.size() - 1);
+				_vertexNeighbourTriangles[id2].emplace_back(_triangles.size() - 1);
 			}
 			{// Triangle1
 				int id0 = i + pointCount;
@@ -238,6 +276,10 @@ namespace shared
 
 				_triangles.emplace_back(std::tuple{ id0, id1, id2 });
 				_triProjDir.emplace_back(projDir);
+
+				_vertexNeighbourTriangles[id0].emplace_back(_triangles.size() - 1);
+				_vertexNeighbourTriangles[id1].emplace_back(_triangles.size() - 1);
+				_vertexNeighbourTriangles[id2].emplace_back(_triangles.size() - 1);
 			}
 		}
 	}

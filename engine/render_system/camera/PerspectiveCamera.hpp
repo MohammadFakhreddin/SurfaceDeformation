@@ -35,6 +35,8 @@ namespace MFA
 		[[nodiscard]]
 		glm::vec3 const & GetUp() const;
 
+		virtual void Update(float dtSec) {}
+
 	protected:
 
 		void SetProjectionDirty();

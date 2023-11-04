@@ -29,6 +29,7 @@ public:
 	using MeshRenderer = shared::SurfaceMeshRenderer;
 	using CollisionTriangle = MFA::CollisionTriangle;
 	using CurtainRenderer = shared::CurtainMeshRenderer;
+	using CameraBufferTracker = MFA::HostVisibleBufferTracker<MFA::ColorPipeline::ViewProjection>;
 
     explicit CC_SubdivisionApp();
 
@@ -84,7 +85,7 @@ private:
 	std::shared_ptr<MFA::DisplayRenderPass> displayRenderPass{};
 
 	std::shared_ptr<MFA::RT::BufferGroup> cameraBuffer{};
-	std::shared_ptr<MFA::HostVisibleBufferTracker<glm::mat4>> cameraBufferTracker{};
+	std::shared_ptr<CameraBufferTracker> cameraBufferTracker{};
 
 	std::shared_ptr<MFA::LinePipeline> linePipeline{};
 	std::shared_ptr<MFA::LineRenderer> lineRenderer{};
@@ -106,7 +107,7 @@ private:
 		.useWireframe = true
 	};
 
-	std::unique_ptr<MFA::ArcballCamera> camera{};
+	std::unique_ptr<MFA::PerspectiveCamera> camera{};
 	// Options
 	int subdivisionLevel = 0;
 	float curtainHeight = 0.5f;
@@ -132,7 +133,7 @@ private:
 	std::vector<CollisionTriangle> curtainCollisionTriangles{};
 	
 	enum class DrawMode
-	{
+{
 		OnMesh,
 		OnCurtain
 	};
@@ -141,4 +142,7 @@ private:
 	bool drawCurtain = true;
 
 	glm::mat4 meshModelMat = glm::identity<glm::mat4>();
+
+	glm::vec4 lightColor = glm::vec4(2.0f, 2.0f, 2.0f, 1.0f);
+	glm::vec4 lightPosition = glm::vec4(100.0f, -100.0f, 0.0f, 100.0f);
 };

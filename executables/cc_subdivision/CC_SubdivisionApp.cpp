@@ -54,17 +54,28 @@ CC_SubdivisionApp::CC_SubdivisionApp()
 	cameraBuffer = RB::CreateHostVisibleUniformBuffer(
 		device->GetVkDevice(),
 		device->GetPhysicalDevice(),
-		sizeof(glm::mat4),
+		sizeof(ColorPipeline::ViewProjection),
 		device->GetMaxFramePerFlight()
 	);
 
 	camera->Setposition({ 0.0f, -1.0f, 15.0f });
 
-	cameraBufferTracker = std::make_shared<HostVisibleBufferTracker<glm::mat4>>(cameraBuffer, camera->GetViewProjection());
+	cameraBufferTracker = std::make_shared<CameraBufferTracker>(
+		cameraBuffer,
+		ColorPipeline::ViewProjection{
+			.viewProjection = camera->GetViewProjection(),
+			.cameraPosition = glm::vec4{camera->Getposition(), 1.0f}
+		}
+	);
 
 	device->ResizeEventSignal2.Register([this]()->void {
-		cameraBufferTracker->SetData(camera->GetViewProjection());
-		});
+		cameraBufferTracker->SetData(
+			ColorPipeline::ViewProjection{
+				.viewProjection = camera->GetViewProjection(),
+				.cameraPosition = glm::vec4{camera->Getposition(), 1.0f}
+			}
+		);
+	});
 
 	colorPipeline = std::make_shared<ColorPipeline>(
 		displayRenderPass,
@@ -108,7 +119,8 @@ CC_SubdivisionApp::CC_SubdivisionApp()
 	device->SDL_EventSignal.Register([&](SDL_Event* event)->void
 		{
 			OnSDL_Event(event);
-		});
+		}
+	);
 
 	// Load a surface mesh which is required to be manifold
 
@@ -219,7 +231,10 @@ void CC_SubdivisionApp::Update()
 	camera->Update(deltaTimeSec);
 	if (camera->IsDirty())
 	{
-		cameraBufferTracker->SetData(camera->GetViewProjection());
+		cameraBufferTracker->SetData(ColorPipeline::ViewProjection{
+			.viewProjection = camera->GetViewProjection(),
+			.cameraPosition = glm::vec4{camera->Getposition(), 1.0f}
+		});
 	}
 
 	if (rightMouseDown == true)
@@ -247,16 +262,19 @@ void CC_SubdivisionApp::Render(MFA::RT::CommandRecordState& recordState)
 			.fillColor = glm::vec4(1.0f, 0.0f, 0.0f, 1.0f),
 			.wireFrameColor = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f),
 			.fillModel = glm::identity<glm::mat4>(),
-			.wireFrameModel = glm::scale(glm::identity<glm::mat4>(), {1.01f, 1.01f, 1.01f})
-		}
-		});
+			.wireFrameModel = glm::scale(glm::identity<glm::mat4>(), {1.01f, 1.01f, 1.01f}),
+			.lightColor = lightColor,
+			.lightPosition = lightPosition
+		}	
+	});
 
 	if (drawMode == DrawMode::OnCurtain && drawCurtain == true)
 	{
 		curtainRenderer->Render(recordState, CurtainRenderer::RenderOptions{
+			.useWireframe = false,
 			.fillColor = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f),
-			.wireframeColor = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f)
-			});
+			.wireframeColor = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f),
+		});
 	}
 
 	DrawPoints(
@@ -334,6 +352,8 @@ void CC_SubdivisionApp::OnUI()
 			DeformMesh();
 		}
 	}
+	ImGui::InputFloat4("Light position", reinterpret_cast<float *>(& lightPosition));
+	ImGui::InputFloat4("Light color", reinterpret_cast<float*>(&lightColor));
 	ui->EndWindow();
 }
 

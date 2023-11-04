@@ -12,7 +12,7 @@
         "color-pipeline-vert": "glslc -g -fshader-stage=vert assets/engine/shaders/color_pipeline/ColorPipeline.vert.hlsl  -o assets/engine/shaders/color_pipeline/ColorPipeline.vert.spv -std=450core",
         "color-pipeline-frag": "glslc -g -fshader-stage=frag assets/engine/shaders/color_pipeline/ColorPipeline.frag.hlsl  -o assets/engine/shaders/color_pipeline/ColorPipeline.frag.spv -std=450core",
 
-        "compile-shaders": "npm run line-pipeline-vert && npm run line-pipeline-frag && npm run point-pipeline-vert && npm run point-pipeline-frag && npm run flat-shading-pipeline-vert && npm run flat-shading-pipeline-frag && color-pipeline-frag && color-pipeline-vert",
+        "compile-shaders": "npm run line-pipeline-vert && npm run line-pipeline-frag && npm run point-pipeline-vert && npm run point-pipeline-frag && npm run flat-shading-pipeline-vert && npm run flat-shading-pipeline-frag && npm run color-pipeline-frag && npm run color-pipeline-vert",
         
         "cmake-mac": "cd build64; cmake .. -G Xcode -DCMAKE_TOOLCHAIN_FILE=./ios.toolchain.cmake -DPLATFORM=MAC; cd ..",
         "cmake-ios": "cd buildIOS; cmake .. -G Xcode -DCMAKE_TOOLCHAIN_FILE=./ios.toolchain.cmake -DPLATFORM=OS64COMBINED; cd ..",

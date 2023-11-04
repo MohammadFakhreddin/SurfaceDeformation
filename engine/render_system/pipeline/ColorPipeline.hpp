@@ -19,23 +19,21 @@ namespace MFA
         struct Vertex
         {
             glm::vec3 position{};
+            glm::vec3 normal{};
         };
 
         struct ViewProjection
         {
-            glm::mat4 matrix{};
+            glm::mat4 viewProjection{};
+            glm::vec4 cameraPosition{};
         };
 
         struct PushConstants
         {
             glm::mat4 model;
-
-            glm::vec4 color;
-
-            float pointSize = 1.0f;
-            float placeholder0;
-            float placeholder1;
-            float placeholder2;
+            glm::vec4 materialColor;
+            glm::vec4 lightPosition;
+            glm::vec4 lightColor;
         };
 
         struct Params

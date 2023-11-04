@@ -1,4 +1,6 @@
 #pragma once
+#include <unordered_map>
+
 #include "Collision.hpp"
 #include "pipeline/ColorPipeline.hpp"
 
@@ -27,14 +29,8 @@ namespace shared
 			bool useWireframe = true;
 			glm::vec4 fillColor{};
 			glm::vec4 wireframeColor{};
-		};
-
-		struct InstanceOptions
-		{
-			glm::vec4 fillColor{};
-			glm::vec4 wireFrameColor{};
-			glm::mat4 fillModel{};
-			glm::mat4 wireFrameModel{};
+			glm::vec4 lightPosition{};
+			glm::vec4 lightColor{};
 		};
 
 		void Render(
@@ -98,6 +94,8 @@ namespace shared
 		std::vector<size_t> _indexBufferSizes{};
 
 		std::vector<std::tuple<int, int, int>> _triangles{};
+		std::unordered_map<int, std::vector<int>> _vertexNeighbourTriangles{}; 
+		std::vector<glm::vec3> _triangleNormals{};
 
 		std::vector<glm::vec3> _triProjDir{};									// Triangles projection direction
 
