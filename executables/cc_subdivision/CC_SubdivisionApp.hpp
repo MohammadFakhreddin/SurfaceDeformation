@@ -50,6 +50,21 @@ private:
 
 	void DeformMesh();
 
+	void DrawPoints(
+		MFA::RT::CommandRecordState & recordState,
+		std::vector<glm::vec3> const& points, 
+		std::vector<glm::vec3> const& normals, 
+		glm::vec4 const& color
+	) const;
+
+	void PerformRaycast();
+
+	void ProjectCurtainPoints();
+
+	void ClearRaycastPoints();
+	
+	void ClearPorjectedPoints();
+
 	float deltaTimeSec = 0.0f;
 
 	// Render parameters
@@ -94,12 +109,14 @@ private:
 	std::shared_ptr<Geometry> subdividedGeometry{};
 
 	bool rightMouseDown = false;
-
+	// This points are stored globally for better debugging and possible memory reuse.
 	std::vector<glm::vec3> rayCastPoints{};
 	std::vector<glm::vec3> rayCastNormals{};
-
-	std::vector<glm::vec3> sampledPoints{};
-	std::vector<glm::vec3> sampledNormals{};
+	std::vector<int> rayCastTriIndices{};
+	
+	std::vector<glm::dvec3> projPoints{};
+	std::vector<glm::dvec3> projNormals{};
+	std::vector<int> projTriIndices{};
 
 	std::vector<CollisionTriangle> meshCollisionTriangles{};
 	std::vector<CollisionTriangle> curtainCollisionTriangles{};
@@ -109,5 +126,9 @@ private:
 		OnMesh,
 		OnCurtain
 	};
-	DrawMode _drawMode = DrawMode::OnMesh;
+	DrawMode drawMode = DrawMode::OnMesh;
+
+	bool drawCurtain = true;
+
+	glm::mat4 meshModelMat = glm::identity<glm::mat4>();
 };

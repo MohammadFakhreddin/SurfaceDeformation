@@ -1,6 +1,10 @@
 #include "Curve.hpp"
 
+#include "BedrockLog.hpp"
+
 #include <glm/glm.hpp>
+
+#include "BedrockAssert.hpp"
 
 namespace shared::Curve
 {
@@ -69,7 +73,7 @@ namespace shared::Curve
 
 	//-------------------------------------------------------------------------------------------------
 
-	float LinearCurve::GetTotalDistance()
+	float LinearCurve::GetTotalDistance() const
 	{
 		return _totalDistance;
 	}
@@ -86,6 +90,14 @@ namespace shared::Curve
 	{
 		outputPoints.clear();
 		outputNormals.clear();
+
+		if (inputPoints.size() < 2)
+		{
+			MFA_LOG_INFO("Too few points for sampling");
+			return;
+		}
+
+		MFA_ASSERT(inputPoints.size() == inputNormals.size());
 
 		LinearCurve curve{ inputPoints, inputNormals };
 

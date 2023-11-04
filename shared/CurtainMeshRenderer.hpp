@@ -43,6 +43,15 @@ namespace shared
 		);
 
 		void UpdateGeometry(
+			float curtainHeight
+		);
+
+		void UpdateGeometry(
+			std::vector<glm::vec3> surfacePoints,
+			std::vector<glm::vec3> surfaceNormals
+		);
+
+		void UpdateGeometry(
 			std::vector<glm::vec3> surfacePoints,
 			std::vector<glm::vec3> surfaceNormals,
 			float curtainHeight
@@ -50,6 +59,10 @@ namespace shared
 
 		[[nodiscard]]
 		std::vector<CollisionTriangle> const & GetCollisionTriangles() const;
+
+		// Index is the same with the collision triangle
+		[[nodiscard]]
+		glm::vec3 const& GetTriangleProjectionDirection(int triangleIdx);
 
 	private:
 
@@ -85,7 +98,9 @@ namespace shared
 		std::vector<size_t> _indexBufferSizes{};
 
 		std::vector<std::tuple<int, int, int>> _triangles{};
-		
+
+		std::vector<glm::vec3> _triProjDir{};									// Triangles projection direction
+
 		std::vector<CollisionTriangle> _collisionTriangles{};
 	};
 }

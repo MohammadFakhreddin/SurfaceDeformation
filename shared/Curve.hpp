@@ -22,7 +22,7 @@ namespace shared::Curve
 		) const;
 
 		[[nodiscard]]
-		float GetTotalDistance();
+		float GetTotalDistance() const;
 
 	private:
 

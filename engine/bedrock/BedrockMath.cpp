@@ -886,14 +886,19 @@ namespace MFA::Math
 
 	//-------------------------------------------------------------------------------------------------
 
-	glm::vec3 FindBarycentricCoordinate(
-		glm::vec3 const& point,
-		glm::vec3 const& triV0,
-		glm::vec3 const& triV1,
-		glm::vec3 const& triV2
+	glm::dvec3 CalcBarycentricCoordinate(
+		glm::dvec3 const& point,
+		glm::dvec3 const& triV0,
+		glm::dvec3 const& triV1,
+		glm::dvec3 const& triV2
 	)
 	{
-		Eigen::Matrix<float, 3, 3> triMat{};
+#ifdef MFA_DEBUG
+		auto const normal = glm::normalize(glm::cross(triV1 - triV0, triV2 - triV1));
+		auto const dot = glm::dot(glm::normalize(point - triV0), normal);
+		MFA_ASSERT(std::abs(dot) < 1e-2);
+#endif
+		Eigen::Matrix<double, 3, 3> triMat{};
 
 		triMat(0, 0) = triV0.x;
 		triMat(1, 0) = triV0.y;
@@ -907,17 +912,17 @@ namespace MFA::Math
 		triMat(1, 2) = triV2.y;
 		triMat(2, 2) = triV2.z;
 
-
-		Eigen::Matrix<float, 3, 1> pointMat{};
+		Eigen::Matrix<double, 3, 1> pointMat{};
 		pointMat(0, 0) = point.x;
 		pointMat(1, 0) = point.y;
 		pointMat(2, 0) = point.z;
 		
 		auto const coordMat = triMat.inverse() * pointMat;
 
-		MFA_ASSERT(((coordMat.x() + coordMat.y() + coordMat.z()) == 1.0f));
+		MFA_ASSERT((std::abs(coordMat.x() + coordMat.y() + coordMat.z() - 1.0f) < glm::epsilon<float>()));
+		MFA_ASSERT((glm::length(coordMat.x() * triV0 + coordMat.y() * triV1 + coordMat.z() * triV2 - point) < glm::epsilon<float>()));
 
-		return glm::vec3{ coordMat(0, 0), coordMat(1, 0), coordMat(2, 0) };
+		return glm::vec3{ coordMat.x(), coordMat.y(), coordMat.z() };
 	}
 
 	//-------------------------------------------------------------------------------------------------

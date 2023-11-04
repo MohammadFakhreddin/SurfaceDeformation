@@ -112,13 +112,34 @@ namespace shared
 
 	//-----------------------------------------------------------------------------
 
+	void CurtainMeshRenderer::UpdateGeometry(float const curtainHeight)
+	{
+		_curtainHeight = curtainHeight;
+
+		UpdateGeometry();
+	}
+
+	//-----------------------------------------------------------------------------
+
+	void CurtainMeshRenderer::UpdateGeometry(
+		std::vector<glm::vec3> surfacePoints,
+		std::vector<glm::vec3> surfaceNormals
+	)
+	{
+		_surfacePoints = std::move(surfacePoints);
+		_surfaceNormals = std::move(surfaceNormals);
+
+		UpdateGeometry();
+	}
+
+	//-----------------------------------------------------------------------------
+
 	void CurtainMeshRenderer::UpdateGeometry(
 		std::vector<glm::vec3> surfacePoints,
 		std::vector<glm::vec3> surfaceNormals,
 		float const curtainHeight
 	)
 	{
-		// TODO: Sample points first
 		_surfacePoints = std::move(surfacePoints);
 		_surfaceNormals = std::move(surfaceNormals);
 		_curtainHeight = curtainHeight;
@@ -131,6 +152,13 @@ namespace shared
 	std::vector<CurtainMeshRenderer::CollisionTriangle> const& CurtainMeshRenderer::GetCollisionTriangles() const
 	{
 		return _collisionTriangles;
+	}
+
+	//-----------------------------------------------------------------------------
+
+	glm::vec3 const& CurtainMeshRenderer::GetTriangleProjectionDirection(int triangleIdx)
+	{
+		return _triProjDir[triangleIdx];
 	}
 
 	//-----------------------------------------------------------------------------
@@ -183,8 +211,10 @@ namespace shared
 		int const pointCount = static_cast<int>(_surfacePoints.size());
 		_indices.clear();
 		_triangles.clear();
+		_triProjDir.clear();
 		for (int i = 0; i < pointCount - 1; ++i)
 		{
+			auto const projDir = glm::normalize(- 1.0f * ((0.5f * _surfaceNormals[i]) + (0.5f * _surfaceNormals[i + 1])));
 			{// Triangle0
 				int id0 = i;
 				int id1 = i + 1;
@@ -195,6 +225,7 @@ namespace shared
 				_indices.emplace_back(id2);
 
 				_triangles.emplace_back(std::tuple{ id0, id1, id2 });
+				_triProjDir.emplace_back(projDir);
 			}
 			{// Triangle1
 				int id0 = i + pointCount;
@@ -206,6 +237,7 @@ namespace shared
 				_indices.emplace_back(id2);
 
 				_triangles.emplace_back(std::tuple{ id0, id1, id2 });
+				_triProjDir.emplace_back(projDir);
 			}
 		}
 	}
@@ -215,6 +247,7 @@ namespace shared
 	void CurtainMeshRenderer::UpdateCollisionTriangles()
 	{
 		_collisionTriangles.resize(_triangles.size());
+
 		#pragma omp parallel for
 		for (int i = 0; i < static_cast<int>(_triangles.size()); ++i)
 		{
