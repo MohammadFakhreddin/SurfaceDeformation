@@ -393,8 +393,25 @@ void CC_SubdivisionApp::DeformMesh()
 {
     ProjectCurtainPoints();
     ClearCurtain();
+    // I need to create a matrix for contribution of each vertex to the projected points
+    //std::vector<glm::vec3> coordinates{};
+    //std::vector<std::tuple<int, int, int>> coordinateVertices{};
+    std::vector<glm::vec3> vertices{};
+    std::vector<std::tuple<int, int, float>> vertexToPointContribution{};
 
-    std::vector<glm::vec3> coordinates{};
+    auto FindVertexIdx = [&vertices](glm::vec3 position)->int
+    {
+        int i = 0;
+	    for (; i < static_cast<int>(vertices.size()); ++i)
+	    {
+		    if (glm::length2(vertices[i] - position) < glm::epsilon<float>())
+		    {
+                return i;
+		    }
+        }
+        vertices.emplace_back(position);
+        return i;
+    };
 
 	for (int i = 0; i < static_cast<int>(projPoints.size()); ++i)
     {
@@ -410,7 +427,26 @@ void CC_SubdivisionApp::DeformMesh()
             v2
         );
 
-        coordinates.emplace_back(coordinate);
+        vertexToPointContribution.emplace_back(std::tuple{ FindVertexIdx(v0), i, coordinate.x });
+        vertexToPointContribution.emplace_back(std::tuple{ FindVertexIdx(v1), i, coordinate.y });
+        vertexToPointContribution.emplace_back(std::tuple{ FindVertexIdx(v2), i, coordinate.z });
+
+		//https://eigen.tuxfamily.org/dox-devel/group__LeastSquares.html
+        // I either have to solve it three times or combine them in one giant matrix
+		Eigen::MatrixXf B(projPoints.size(), vertices.size());
+        B.setZero();
+        /*for (auto & [vIdx, pIdx, value] : vertexToPointContribution)
+        {
+            MFA_ASSERT(B(vIdx, pIdx) == 0.0f);
+            B(vIdx, pIdx) = value;
+        }
+
+        auto const A = B.transpose() * B;
+        Eigen::MatrixXf b (projPoints.size(), 1);
+        for (int i = 0; i < projPoints.size(); ++i)
+        {
+            b(i, 0) = projPoints[i];
+        }*/
     }
 }
 
