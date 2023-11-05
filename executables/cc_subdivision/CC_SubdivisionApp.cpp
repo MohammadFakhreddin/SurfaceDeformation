@@ -415,10 +415,79 @@ void CC_SubdivisionApp::DeformMesh()
 	ProjectCurtainPoints();
 	ClearCurtain();
 
+	MFA_ASSERT(sampledPoints.size() == projPoints.size());
+	
 	std::vector<glm::vec3> vertices{};
 	std::vector<std::tuple<int, int, float>> vToPContrib{};
 	CalcVertexToPointContribution(vertices, vToPContrib);
 
+//#define COMBINE
+
+#ifdef COMBINE
+
+	Eigen::MatrixXf B(projPoints.size() * 3, vertices.size() * 3);
+	B.setZero();
+
+	for (auto& [vIdx, pIdx, value] : vToPContrib)
+	{
+		// X
+		MFA_ASSERT(B(pIdx * 3, vIdx * 3) == 0.0f);
+		B(pIdx * 3, vIdx * 3) = value;
+
+		// Y
+		MFA_ASSERT(B(pIdx * 3 + 1, vIdx * 3 + 1) == 0.0f);
+		B(pIdx * 3 + 1, vIdx * 3 + 1) = value;
+
+		// Z
+		MFA_ASSERT(B(pIdx * 3 + 2, vIdx * 3 + 2) == 0.0f);
+		B(pIdx * 3 + 2, vIdx * 3 + 2) = value;
+	}
+
+	auto const BT = B.transpose();
+	auto const A = BT * B;
+
+	Eigen::MatrixXf b(projPoints.size() * 3, 1);
+
+	for (int i = 0; i < static_cast<int>(projPoints.size()); ++i)
+	{
+		b(i * 3, 0) = sampledPoints[i].x - projPoints[i].x;
+		b(i * 3 + 1, 0) = sampledPoints[i].y - projPoints[i].y;
+		b(i * 3 + 2, 0) = sampledPoints[i].z - projPoints[i].z;
+	}
+
+	Eigen::BDCSVD<Eigen::MatrixXf> SVD(A, Eigen::ComputeThinU | Eigen::ComputeThinV);
+
+	auto const D = SVD.solve(BT);
+
+	auto const& vertexPositions = subdividedGeometry->vertexPositions;
+
+	auto const FindVertexIdx = [&vertexPositions](glm::vec3 const& position)->int
+	{
+		for (int i = 0; i < static_cast<int>(vertexPositions.size()); ++i)
+		{
+			auto const& vPos = vertexPositions[i];
+			auto const distance2 = std::pow(vPos.x - position.x, 2) +
+				std::pow(vPos.y - position.y, 2) +
+				std::pow(vPos.z - position.z, 2);
+
+			if (distance2 < glm::epsilon<float>() * glm::epsilon<float>())
+			{
+				return i;
+			}
+		}
+		return -1;
+	};
+
+	for (int i = 0; i < static_cast<int>(vertices.size()); ++i)
+	{
+		auto const idx = FindVertexIdx(vertices[i]);
+		subdividedGeometry->vertexPositions[idx].x += D(i * 3, 0);
+		subdividedGeometry->vertexPositions[idx].y += D(i * 3 + 1, 0);
+		subdividedGeometry->vertexPositions[idx].z += D(i * 3 + 2, 0);
+	}
+
+#else
+	//TODO: We need energy minimization
 	//https://eigen.tuxfamily.org/dox-devel/group__LeastSquares.html
 	// I either have to solve it three times or combine them in one giant matrix
 	Eigen::MatrixXf B(projPoints.size(), vertices.size());
@@ -451,16 +520,16 @@ void CC_SubdivisionApp::DeformMesh()
 
 	auto const& vertexPositions = subdividedGeometry->vertexPositions;
 
-	auto const FindVertexIdx = [&vertexPositions](glm::vec3 const & position)->int
+	auto const FindVertexIdx = [&vertexPositions](glm::vec3 const& position)->int
 	{
 		for (int i = 0; i < static_cast<int>(vertexPositions.size()); ++i)
 		{
 			auto const& vPos = vertexPositions[i];
-			auto const distance2 = std::pow(vPos.x - position.x, 2) + 
-				std::pow(vPos.y - position.y, 2) + 
+			auto const distance2 = std::pow(vPos.x - position.x, 2) +
+				std::pow(vPos.y - position.y, 2) +
 				std::pow(vPos.z - position.z, 2);
 
-			if (distance2 < glm::epsilon<float>())
+			if (distance2 < glm::epsilon<float>() * glm::epsilon<float>())
 			{
 				return i;
 			}
@@ -475,6 +544,8 @@ void CC_SubdivisionApp::DeformMesh()
 		subdividedGeometry->vertexPositions[idx].y += Dy(i, 0);
 		subdividedGeometry->vertexPositions[idx].z += Dz(i, 0);
 	}
+
+#endif
 
 	meshRenderer->UpdateGeometry(subdividedMesh, subdividedGeometry);
 }
@@ -641,7 +712,7 @@ void CC_SubdivisionApp::CalcVertexToPointContribution(
 			int i = 0;
 			for (; i < static_cast<int>(outVertices.size()); ++i)
 			{
-				if (glm::length2(outVertices[i] - position) < glm::epsilon<float>())
+				if (glm::length2(outVertices[i] - position) < glm::epsilon<float>() * glm::epsilon<float>())
 				{
 					return i;
 				}
