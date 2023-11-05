@@ -274,6 +274,8 @@ void CC_SubdivisionApp::Render(MFA::RT::CommandRecordState& recordState)
 			.useWireframe = false,
 			.fillColor = glm::vec4(0.0f, 0.0f, 1.0f, 1.0f),
 			.wireframeColor = glm::vec4(0.0f, 0.0f, 0.0f, 1.0f),
+			.lightPosition = lightPosition,
+			.lightColor = lightColor,
 		});
 	}
 

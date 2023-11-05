@@ -46,6 +46,7 @@ PSOut main(PSIn input) {
 
     float3 lightDirection = normalize(lightPosition - fragmentPosition);
     float3 viewDirection = normalize(cameraPosition - fragmentPosition);
+    float3 halfwayDirection = normalize(lightDirection + viewDirection);
 
 	float3 ambientColor = lightColor.rgb * 0.05f;
 
@@ -54,7 +55,12 @@ PSOut main(PSIn input) {
 
     float3 reflectDir = reflect(-lightDirection, fragmentNormal);
     float3 specularFactor = float3(0.0, 0.0, 0.0);
-    specularFactor = pow(max(dot(viewDirection, reflectDir), 0.0), 8.0) * diffuseFactor * 10.0f;
+    
+    // Blinn
+    specularFactor = pow(max(dot(fragmentNormal, halfwayDirection), 0.0), 16.0);
+    // blinn-phong
+    // specularFactor = pow(max(dot(viewDirection, reflectDir), 0.0), 8.0) * diffuseFactor * 10.0f;
+    
     float3 specularColor = specularFactor * lightColor;
 
     float3 color = (ambientColor + diffuseColor + specularColor) * materialColor.rgb;
