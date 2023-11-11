@@ -451,7 +451,7 @@ void CC_SubdivisionApp::DeformMesh()
 				}
 
 				glm::vec3 laplacian = vertices[myLIdx];
-				bool insertionAllowed = itrCount != laplacianDistance - 1;
+				bool insertionAllowed = true;// itrCount != laplacianDistance - 1;
 				int neighborCount = 0;
 
 				for (auto & neighGIdx : vNeighbors)
