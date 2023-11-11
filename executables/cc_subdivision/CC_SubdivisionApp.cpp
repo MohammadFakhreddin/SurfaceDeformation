@@ -342,6 +342,8 @@ void CC_SubdivisionApp::OnUI()
 	{
 		deltaS = std::max(deltaS, 0.001f);
 	}
+	ImGui::InputInt("Laplacian distance", &laplacianDistance);
+	ImGui::InputFloat("Laplacian weight", &laplacianWeight);
 	ImGui::Checkbox("Curtain", &drawCurtain);
 	if (drawMode == DrawMode::OnCurtain)
 	{
@@ -431,7 +433,7 @@ void CC_SubdivisionApp::DeformMesh()
 	}
 
 	std::vector<std::tuple<int, int, float>> vToVContrib{};							// For laplacian
-	std::unordered_map<int, float> localIdxToLaplacian{};							// Local index to laplacian
+	std::unordered_map<int, glm::vec3> localIdxToLaplacian{};						// Local index to laplacian
 	{
 		std::vector<int> queryIndices = vertexGIndices;
 		for (int itrCount = 0; itrCount < laplacianDistance; ++itrCount)
@@ -448,34 +450,52 @@ void CC_SubdivisionApp::DeformMesh()
 					MFA_ASSERT(result == true);
 				}
 
-				float weight = 1.0f / static_cast<float>(vNeighbors.size());
-				float laplacian = 0.0f;
+				glm::vec3 laplacian = vertices[myLIdx];
+				bool insertionAllowed = itrCount != laplacianDistance - 1;
+				int neighborCount = 0;
 
 				for (auto & neighGIdx : vNeighbors)
 				{
 					auto const findLIdResult = gToLVMap.find(neighGIdx);
-
-					int neighLIdx = 0;
 					if (findLIdResult == gToLVMap.end())
 					{
-						glm::vec3 position = {};
+						if (insertionAllowed == true)
 						{
-							bool result = meshRenderer->GetVertexPosition(neighGIdx, position);
-							MFA_ASSERT(result == true);
+							glm::vec3 position = {};
+							{
+								bool result = meshRenderer->GetVertexPosition(neighGIdx, position);
+								MFA_ASSERT(result == true);
+							}
+							auto const neighLIdx = static_cast<int>(vertices.size());
+							vertices.emplace_back(position);
+							vertexGIndices.emplace_back(neighGIdx);
+							nextQueryIndices.emplace_back(neighGIdx);
+							gToLVMap[neighGIdx] = neighLIdx;
+
+							++neighborCount;
 						}
-						neighLIdx = static_cast<int>(vertices.size());
-						vertices.emplace_back(position);
-						vertexGIndices.emplace_back(neighGIdx);
-						nextQueryIndices.emplace_back(neighGIdx);
-						gToLVMap[neighGIdx] = neighLIdx;
 					}
 					else
 					{
-						neighLIdx = findLIdResult->second;
+						++neighborCount;
 					}
-
-					vToVContrib.emplace_back(std::tuple{neighLIdx, myLIdx, weight});
 				}
+
+				float weight = 1.0f / static_cast<float>(neighborCount);
+				
+				for (auto& neighGIdx : vNeighbors)
+				{
+					auto const findLIdResult = gToLVMap.find(neighGIdx);
+
+					if (findLIdResult != gToLVMap.end())
+					{
+						auto const neighLIdx = findLIdResult->second;
+						laplacian -= weight * vertices[neighLIdx];
+						vToVContrib.emplace_back(std::tuple{neighLIdx, myLIdx, -weight});
+					}
+				}
+
+				vToVContrib.emplace_back(std::tuple{myLIdx, myLIdx, 1.0f});
 
 				localIdxToLaplacian[myLIdx] = laplacian;
 			}
@@ -554,7 +574,6 @@ void CC_SubdivisionApp::DeformMesh()
 	// I either have to solve it three times or combine them in one giant matrix
 	Eigen::MatrixXf B(projPoints.size(), vertices.size());
 	B.setZero();
-
 	for (auto& [vIdx, pIdx, value] : vToPContrib)
 	{
 		MFA_ASSERT(B(pIdx, vIdx) == 0.0f);
@@ -563,11 +582,13 @@ void CC_SubdivisionApp::DeformMesh()
 	auto const BT = B.transpose();
 
 	Eigen::MatrixXf Y(vertices.size(), vertices.size());
+	Y.setZero();
 	for (auto & [nIdx, myIdx, value] : vToVContrib)
 	{
 		MFA_ASSERT(Y(myIdx, nIdx) == 0.0f);
 		Y(myIdx, nIdx) = value;
 	}
+
 	auto const YT = Y.transpose();
 
 	auto const A = (BT * B * (1.0f - laplacianWeight)) + (YT * Y * laplacianWeight);
@@ -582,17 +603,22 @@ void CC_SubdivisionApp::DeformMesh()
 		bz(i, 0) = sampledPoints[i].z - projPoints[i].z;
 	}
 
-	Eigen::MatrixXf y(vertices.size(), vertices.size());
-	for (int i = 0; i < vertices.size(); ++i)
+	Eigen::MatrixXf yX(vertices.size(), 1);
+	Eigen::MatrixXf yY(vertices.size(), 1);
+	Eigen::MatrixXf yZ(vertices.size(), 1);
+	for (int localIdx = 0; localIdx < static_cast<int>(vertices.size()); ++localIdx)
 	{
-		//y
+		auto const& laplacian = localIdxToLaplacian[localIdx];
+		yX(localIdx, 0) = -laplacian.x;
+		yY(localIdx, 0) = -laplacian.y;
+		yZ(localIdx, 0) = -laplacian.z;
 	}
 
 	Eigen::BDCSVD<Eigen::MatrixXf> SVD(A, Eigen::ComputeThinU | Eigen::ComputeThinV);
 
-	auto const Dx = SVD.solve(BT * bx);
-	auto const Dy = SVD.solve(BT * by);
-	auto const Dz = SVD.solve(BT * bz);
+	auto const Dx = SVD.solve((BT * bx * (1.0f - laplacianWeight)) + (YT * yX * laplacianWeight));
+	auto const Dy = SVD.solve((BT * by * (1.0f - laplacianWeight)) + (YT * yY * laplacianWeight));
+	auto const Dz = SVD.solve((BT * bz * (1.0f - laplacianWeight)) + (YT * yZ * laplacianWeight));
 
 	auto const& vertexPositions = subdividedGeometry->vertexPositions;
 
