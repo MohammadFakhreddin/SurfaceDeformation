@@ -418,8 +418,70 @@ void CC_SubdivisionApp::DeformMesh()
 	MFA_ASSERT(sampledPoints.size() == projPoints.size());
 	
 	std::vector<glm::vec3> vertices{};
-	std::vector<std::tuple<int, int, float>> vToPContrib{};
-	CalcVertexToPointContribution(vertices, vToPContrib);
+	std::vector<int> vertexGIndices{};
+	std::vector<std::tuple<int, int, float>> vToPContrib{};							// For projection
+	CalcVertexToPointContribution(vertices, vertexGIndices, vToPContrib);	// Global indices
+
+	std::unordered_map<int, int> gToLVMap{};										// Global to local vertex map
+	for (int lIdx = 0; lIdx < static_cast<int>(vertexGIndices.size()); ++lIdx)
+	{
+		auto wIdx = vertexGIndices[lIdx];
+		MFA_ASSERT(gToLVMap.contains(wIdx) == false);
+		gToLVMap[wIdx] = lIdx;
+	}
+
+	std::vector<std::tuple<int, int, float>> vToVContrib{};							// For laplacian
+	std::unordered_map<int, float> localIdxToLaplacian{};							// Local index to laplacian
+	{
+		std::vector<int> queryIndices = vertexGIndices;
+		for (int itrCount = 0; itrCount < laplacianDistance; ++itrCount)
+		{
+			std::vector<int> nextQueryIndices {};
+			for (auto myGIdx : queryIndices)
+			{
+				MFA_ASSERT(gToLVMap.contains(myGIdx));
+				auto myLIdx = gToLVMap[myGIdx];
+
+				std::set<int> vNeighbors{};
+				{
+					bool result = meshRenderer->GetVertexNeighbors(myGIdx, vNeighbors);
+					MFA_ASSERT(result == true);
+				}
+
+				float weight = 1.0f / static_cast<float>(vNeighbors.size());
+				float laplacian = 0.0f;
+
+				for (auto & neighGIdx : vNeighbors)
+				{
+					auto const findLIdResult = gToLVMap.find(neighGIdx);
+
+					int neighLIdx = 0;
+					if (findLIdResult == gToLVMap.end())
+					{
+						glm::vec3 position = {};
+						{
+							bool result = meshRenderer->GetVertexPosition(neighGIdx, position);
+							MFA_ASSERT(result == true);
+						}
+						neighLIdx = static_cast<int>(vertices.size());
+						vertices.emplace_back(position);
+						vertexGIndices.emplace_back(neighGIdx);
+						nextQueryIndices.emplace_back(neighGIdx);
+						gToLVMap[neighGIdx] = neighLIdx;
+					}
+					else
+					{
+						neighLIdx = findLIdResult->second;
+					}
+
+					vToVContrib.emplace_back(std::tuple{neighLIdx, myLIdx, weight});
+				}
+
+				localIdxToLaplacian[myLIdx] = laplacian;
+			}
+			queryIndices = nextQueryIndices;
+		}
+	}
 
 //#define COMBINE
 
@@ -498,9 +560,17 @@ void CC_SubdivisionApp::DeformMesh()
 		MFA_ASSERT(B(pIdx, vIdx) == 0.0f);
 		B(pIdx, vIdx) = value;
 	}
-
 	auto const BT = B.transpose();
-	auto const A = BT * B;
+
+	Eigen::MatrixXf Y(vertices.size(), vertices.size());
+	for (auto & [nIdx, myIdx, value] : vToVContrib)
+	{
+		MFA_ASSERT(Y(myIdx, nIdx) == 0.0f);
+		Y(myIdx, nIdx) = value;
+	}
+	auto const YT = Y.transpose();
+
+	auto const A = (BT * B * (1.0f - laplacianWeight)) + (YT * Y * laplacianWeight);
 
 	Eigen::MatrixXf bx(projPoints.size(), 1);
 	Eigen::MatrixXf by(projPoints.size(), 1);
@@ -510,6 +580,12 @@ void CC_SubdivisionApp::DeformMesh()
 		bx(i, 0) = sampledPoints[i].x - projPoints[i].x;
 		by(i, 0) = sampledPoints[i].y - projPoints[i].y;
 		bz(i, 0) = sampledPoints[i].z - projPoints[i].z;
+	}
+
+	Eigen::MatrixXf y(vertices.size(), vertices.size());
+	for (int i = 0; i < vertices.size(); ++i)
+	{
+		//y
 	}
 
 	Eigen::BDCSVD<Eigen::MatrixXf> SVD(A, Eigen::ComputeThinU | Eigen::ComputeThinV);
@@ -525,7 +601,8 @@ void CC_SubdivisionApp::DeformMesh()
 		for (int i = 0; i < static_cast<int>(vertexPositions.size()); ++i)
 		{
 			auto const& vPos = vertexPositions[i];
-			auto const distance2 = std::pow(vPos.x - position.x, 2) +
+			auto const distance2 = 
+				std::pow(vPos.x - position.x, 2) +
 				std::pow(vPos.y - position.y, 2) +
 				std::pow(vPos.z - position.z, 2);
 
@@ -701,32 +778,47 @@ void CC_SubdivisionApp::ProjectCurtainPoints()
 
 void CC_SubdivisionApp::CalcVertexToPointContribution(
 	std::vector<glm::vec3>& outVertices,
+	std::vector<int>& outVertexIndices,
 	std::vector<std::tuple<int, int, float>>& outVToPContrib
 ) const
 {
 	outVertices.clear();
+	outVertexIndices.clear();
 	outVToPContrib.clear();
 
-	auto FindVertexIdx = [&outVertices](glm::vec3 position)->int
+	std::unordered_map<int, int> vGtoLIdx{}; // Vertex global to local idx
+
+	auto FindOrInsertVertex = [&](int globalIdx, glm::vec3 const & position)->int
+	{
+		auto const findResult = vGtoLIdx.find(globalIdx);
+		if (findResult != vGtoLIdx.end())
 		{
-			int i = 0;
-			for (; i < static_cast<int>(outVertices.size()); ++i)
-			{
-				if (glm::length2(outVertices[i] - position) < glm::epsilon<float>() * glm::epsilon<float>())
-				{
-					return i;
-				}
-			}
-			outVertices.emplace_back(position);
-			return i;
-		};
+			return findResult->second;
+		}
+
+		int const localIdx = static_cast<int>(outVertices.size());
+
+		vGtoLIdx[globalIdx] = localIdx;
+		outVertices.emplace_back(position);
+		outVertexIndices.emplace_back(globalIdx);
+
+		return localIdx;
+	};
 
 	for (int i = 0; i < static_cast<int>(projPoints.size()); ++i)
 	{
-		auto const& triangle = meshCollisionTriangles[projTriIndices[i]];
+		int const triangleIdx = projTriIndices[i];
+
+		auto const& triangle = meshCollisionTriangles[triangleIdx];
+
 		auto const& v0 = triangle.edgeVertices[0];
 		auto const& v1 = triangle.edgeVertices[1];
 		auto const& v2 = triangle.edgeVertices[2];
+
+		std::tuple<int, int, int> vIds {};
+		auto const foundVertices = meshRenderer->GetVertexIndices(triangleIdx, vIds);
+		MFA_ASSERT(foundVertices == true);
+		auto& [idx0, idx1, idx2] = vIds;
 
 		auto const coordinate = Math::CalcBarycentricCoordinate(
 			projPoints[i],
@@ -735,9 +827,9 @@ void CC_SubdivisionApp::CalcVertexToPointContribution(
 			v2
 		);
 
-		outVToPContrib.emplace_back(std::tuple{ FindVertexIdx(v0), i, coordinate.x });
-		outVToPContrib.emplace_back(std::tuple{ FindVertexIdx(v1), i, coordinate.y });
-		outVToPContrib.emplace_back(std::tuple{ FindVertexIdx(v2), i, coordinate.z });
+		outVToPContrib.emplace_back(std::tuple{ FindOrInsertVertex(idx0, v0), i, coordinate.x });
+		outVToPContrib.emplace_back(std::tuple{ FindOrInsertVertex(idx1, v1), i, coordinate.y });
+		outVToPContrib.emplace_back(std::tuple{ FindOrInsertVertex(idx2, v2), i, coordinate.z });
 	}
 }
 

@@ -54,6 +54,12 @@ namespace shared
         [[nodiscard]]
         std::vector<CollisionTriangle> GetCollisionTriangles(glm::mat4 const & model) const;
 
+        bool GetVertexIndices(int triangleIdx, std::tuple<int, int, int> & outVIds) const;
+
+        bool GetVertexNeighbors(int vertexIdx, std::set<int> & outVIds) const;
+
+        bool GetVertexPosition(int vertexIdx, glm::vec3 & outPosition);
+
     private:
 
         void UpdateGeometry();
@@ -88,6 +94,7 @@ namespace shared
 
         std::vector<std::tuple<int, int, int>> _triangles{};
         std::unordered_map<int, std::vector<int>> _vertexNeighbourTriangles{};
+        std::unordered_map<int, std::set<int>> _vertexNeighbourVertices{};
         std::vector<glm::vec3> _triangleNormals{};
 
         std::vector<CollisionTriangle> _collisionTriangles{};

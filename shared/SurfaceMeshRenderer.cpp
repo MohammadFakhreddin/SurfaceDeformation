@@ -191,6 +191,43 @@ std::vector<CollisionTriangle> shared::SurfaceMeshRenderer::GetCollisionTriangle
 
 //------------------------------------------------------------
 
+bool shared::SurfaceMeshRenderer::GetVertexIndices(int const triangleIdx, std::tuple<int, int, int>& outVIds) const
+{
+	if (triangleIdx < 0 || triangleIdx >= _triangles.size())
+	{
+		return false;
+	}
+	outVIds = _triangles[triangleIdx];
+	return true;
+}
+
+//------------------------------------------------------------
+
+bool shared::SurfaceMeshRenderer::GetVertexNeighbors(int const vertexIdx, std::set<int>& outVIds) const
+{
+	auto const findResult = _vertexNeighbourVertices.find(vertexIdx);
+	if (findResult != _vertexNeighbourVertices.end())
+	{
+		outVIds = findResult->second;
+		return true;
+	}
+	return false;
+}
+
+//------------------------------------------------------------
+
+bool shared::SurfaceMeshRenderer::GetVertexPosition(int const vertexIdx, glm::vec3 & outPosition)
+{
+	if (vertexIdx < 0 || vertexIdx >= static_cast<int>(_vertices.size()))
+	{
+		return false;
+	}
+	outPosition = _vertices[vertexIdx].position;
+	return true;
+}
+
+//------------------------------------------------------------
+
 void shared::SurfaceMeshRenderer::UpdateCpuVertices()
 {
 	_vertices.clear();
@@ -233,6 +270,7 @@ void shared::SurfaceMeshRenderer::UpdateCpuIndices()
 {
 	_indices.clear();
 	_vertexNeighbourTriangles.clear();
+	_vertexNeighbourVertices.clear();
 	_triangles.clear();
 	
 	auto const faceVertexList = _mesh->getFaceVertexList();
@@ -253,6 +291,13 @@ void shared::SurfaceMeshRenderer::UpdateCpuIndices()
 			_vertexNeighbourTriangles[idx0].emplace_back(_triangles.size() - 1);
 			_vertexNeighbourTriangles[idx1].emplace_back(_triangles.size() - 1);
 			_vertexNeighbourTriangles[idx2].emplace_back(_triangles.size() - 1);
+
+			_vertexNeighbourVertices[idx0].emplace(idx1);
+			_vertexNeighbourVertices[idx0].emplace(idx2);
+			_vertexNeighbourVertices[idx1].emplace(idx2);
+			_vertexNeighbourVertices[idx1].emplace(idx0);
+			_vertexNeighbourVertices[idx2].emplace(idx0);
+			_vertexNeighbourVertices[idx2].emplace(idx1);
 		}
 		else if (faceVertices.size() == 4)
 		{
@@ -264,12 +309,19 @@ void shared::SurfaceMeshRenderer::UpdateCpuIndices()
 				_indices.emplace_back(idx0);
 				_indices.emplace_back(idx1);
 				_indices.emplace_back(idx2);
-
+				
 				_triangles.emplace_back(std::tuple{ idx0, idx1, idx2 });
 
 				_vertexNeighbourTriangles[idx0].emplace_back(_triangles.size() - 1);
 				_vertexNeighbourTriangles[idx1].emplace_back(_triangles.size() - 1);
 				_vertexNeighbourTriangles[idx2].emplace_back(_triangles.size() - 1);
+
+				_vertexNeighbourVertices[idx0].emplace(idx1);
+				_vertexNeighbourVertices[idx0].emplace(idx2);
+				_vertexNeighbourVertices[idx1].emplace(idx2);
+				_vertexNeighbourVertices[idx1].emplace(idx0);
+				_vertexNeighbourVertices[idx2].emplace(idx0);
+				_vertexNeighbourVertices[idx2].emplace(idx1);
 			}
 			{// Triangle1
 				int idx0 = faceVertices[2];
@@ -285,6 +337,13 @@ void shared::SurfaceMeshRenderer::UpdateCpuIndices()
 				_vertexNeighbourTriangles[idx0].emplace_back(_triangles.size() - 1);
 				_vertexNeighbourTriangles[idx1].emplace_back(_triangles.size() - 1);
 				_vertexNeighbourTriangles[idx2].emplace_back(_triangles.size() - 1);
+
+				_vertexNeighbourVertices[idx0].emplace(idx1);
+				_vertexNeighbourVertices[idx0].emplace(idx2);
+				_vertexNeighbourVertices[idx1].emplace(idx2);
+				_vertexNeighbourVertices[idx1].emplace(idx0);
+				_vertexNeighbourVertices[idx2].emplace(idx0);
+				_vertexNeighbourVertices[idx2].emplace(idx1);
 			}
 		}
 		else

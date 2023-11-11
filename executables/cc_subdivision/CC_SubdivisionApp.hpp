@@ -64,6 +64,7 @@ private:
 
 	void CalcVertexToPointContribution(
 		std::vector<glm::vec3> & outVertices,
+		std::vector<int> & outVertexIndices,
 		std::vector<std::tuple<int, int, float>> & outVToPContrib
 	) const;
 
@@ -145,4 +146,7 @@ private:
 
 	glm::vec4 lightColor = glm::vec4(2.0f, 2.0f, 2.0f, 1.0f);
 	glm::vec4 lightPosition = glm::vec4(100.0f, -100.0f, 0.0f, 100.0f);
+
+	int laplacianDistance = 4;
+	float laplacianWeight = 0.25f;
 };
