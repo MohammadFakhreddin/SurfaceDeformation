@@ -419,12 +419,14 @@ void CC_SubdivisionApp::DeformMesh()
 
 	MFA_ASSERT(sampledPoints.size() == projPoints.size());
 	
-	std::vector<glm::vec3> vertices{};
+	std::vector<glm::vec3> movableVertices{};
 	std::vector<int> vertexGIndices{};
-	std::vector<std::tuple<int, int, float>> vToPContrib{};							// For projection
-	CalcVertexToPointContribution(vertices, vertexGIndices, vToPContrib);	// Global indices
+	std::vector<std::tuple<int, int, float>> vToPContrib{};									// For projection
+	CalcVertexToPointContribution(movableVertices, vertexGIndices, vToPContrib);	// Global indices
 
-	std::unordered_map<int, int> gToLVMap{};										// Global to local vertex map
+	std::vector<glm::vec3> allVertices(movableVertices.begin(), movableVertices.end());
+
+	std::unordered_map<int, int> gToLVMap{};												// Global to local vertex map
 	for (int lIdx = 0; lIdx < static_cast<int>(vertexGIndices.size()); ++lIdx)
 	{
 		auto wIdx = vertexGIndices[lIdx];
@@ -432,8 +434,8 @@ void CC_SubdivisionApp::DeformMesh()
 		gToLVMap[wIdx] = lIdx;
 	}
 
-	std::vector<std::tuple<int, int, float>> vToVContrib{};							// For laplacian
-	std::unordered_map<int, glm::vec3> localIdxToLaplacian{};						// Local index to laplacian
+	std::vector<std::tuple<int, int, float>> vToVContrib{};									// For laplacian
+	std::unordered_map<int, glm::vec3> localIdxToLaplacian{};								// Local index to laplacian
 	{
 		std::vector<int> queryIndices = vertexGIndices;
 		for (int itrCount = 0; itrCount < laplacianDistance; ++itrCount)
@@ -444,149 +446,94 @@ void CC_SubdivisionApp::DeformMesh()
 				MFA_ASSERT(gToLVMap.contains(myGIdx));
 				auto myLIdx = gToLVMap[myGIdx];
 
-				std::set<int> vNeighbors{};
+				std::set<int> allVertexNeighbors{};
 				{
-					bool result = meshRenderer->GetVertexNeighbors(myGIdx, vNeighbors);
+					bool result = meshRenderer->GetVertexNeighbors(myGIdx, allVertexNeighbors);
 					MFA_ASSERT(result == true);
 				}
 
-				glm::vec3 laplacian = vertices[myLIdx];
-				bool insertionAllowed = true;// itrCount != laplacianDistance - 1;
-				int neighborCount = 0;
+				glm::vec3 laplacian = allVertices[myLIdx];
+				bool isMovable = itrCount < laplacianDistance - 1;
+				bool canInsert = itrCount < laplacianDistance;
 
-				for (auto & neighGIdx : vNeighbors)
+				std::vector<int> validNeighbors{};
+				for (auto& neighGIdx : allVertexNeighbors)
 				{
 					auto const findLIdResult = gToLVMap.find(neighGIdx);
 					if (findLIdResult == gToLVMap.end())
 					{
-						if (insertionAllowed == true)
+						if (canInsert == true)
 						{
 							glm::vec3 position = {};
 							{
 								bool result = meshRenderer->GetVertexPosition(neighGIdx, position);
 								MFA_ASSERT(result == true);
 							}
-							auto const neighLIdx = static_cast<int>(vertices.size());
-							vertices.emplace_back(position);
+
+							auto const neighLIdx = static_cast<int>(allVertices.size());
+							if (isMovable == true)
+							{
+								movableVertices.emplace_back(position);
+							}
+							allVertices.emplace_back(position);
 							vertexGIndices.emplace_back(neighGIdx);
 							nextQueryIndices.emplace_back(neighGIdx);
 							gToLVMap[neighGIdx] = neighLIdx;
 
-							++neighborCount;
+							validNeighbors.emplace_back(neighGIdx);
 						}
 					}
 					else
 					{
-						++neighborCount;
+						validNeighbors.emplace_back(neighGIdx);
 					}
 				}
 
-				float weight = 1.0f / static_cast<float>(neighborCount);
-				
-				for (auto& neighGIdx : vNeighbors)
+				float weight = 1.0f / static_cast<float>(validNeighbors.size());
+
+				for (auto& neighGIdx : validNeighbors)
 				{
 					auto const findLIdResult = gToLVMap.find(neighGIdx);
 
 					if (findLIdResult != gToLVMap.end())
 					{
 						auto const neighLIdx = findLIdResult->second;
-						laplacian -= weight * vertices[neighLIdx];
+						laplacian -= weight * allVertices[neighLIdx];
 						vToVContrib.emplace_back(std::tuple{neighLIdx, myLIdx, -weight});
-					}
+					} 
 				}
 
 				vToVContrib.emplace_back(std::tuple{myLIdx, myLIdx, 1.0f});
-
+				
 				localIdxToLaplacian[myLIdx] = laplacian;
 			}
 			queryIndices = nextQueryIndices;
 		}
 	}
 
-//#define COMBINE
-
-#ifdef COMBINE
-
-	Eigen::MatrixXf B(projPoints.size() * 3, vertices.size() * 3);
-	B.setZero();
-
-	for (auto& [vIdx, pIdx, value] : vToPContrib)
-	{
-		// X
-		MFA_ASSERT(B(pIdx * 3, vIdx * 3) == 0.0f);
-		B(pIdx * 3, vIdx * 3) = value;
-
-		// Y
-		MFA_ASSERT(B(pIdx * 3 + 1, vIdx * 3 + 1) == 0.0f);
-		B(pIdx * 3 + 1, vIdx * 3 + 1) = value;
-
-		// Z
-		MFA_ASSERT(B(pIdx * 3 + 2, vIdx * 3 + 2) == 0.0f);
-		B(pIdx * 3 + 2, vIdx * 3 + 2) = value;
-	}
-
-	auto const BT = B.transpose();
-	auto const A = BT * B;
-
-	Eigen::MatrixXf b(projPoints.size() * 3, 1);
-
-	for (int i = 0; i < static_cast<int>(projPoints.size()); ++i)
-	{
-		b(i * 3, 0) = sampledPoints[i].x - projPoints[i].x;
-		b(i * 3 + 1, 0) = sampledPoints[i].y - projPoints[i].y;
-		b(i * 3 + 2, 0) = sampledPoints[i].z - projPoints[i].z;
-	}
-
-	Eigen::BDCSVD<Eigen::MatrixXf> SVD(A, Eigen::ComputeThinU | Eigen::ComputeThinV);
-
-	auto const D = SVD.solve(BT);
-
-	auto const& vertexPositions = subdividedGeometry->vertexPositions;
-
-	auto const FindVertexIdx = [&vertexPositions](glm::vec3 const& position)->int
-	{
-		for (int i = 0; i < static_cast<int>(vertexPositions.size()); ++i)
-		{
-			auto const& vPos = vertexPositions[i];
-			auto const distance2 = std::pow(vPos.x - position.x, 2) +
-				std::pow(vPos.y - position.y, 2) +
-				std::pow(vPos.z - position.z, 2);
-
-			if (distance2 < glm::epsilon<float>() * glm::epsilon<float>())
-			{
-				return i;
-			}
-		}
-		return -1;
-	};
-
-	for (int i = 0; i < static_cast<int>(vertices.size()); ++i)
-	{
-		auto const idx = FindVertexIdx(vertices[i]);
-		subdividedGeometry->vertexPositions[idx].x += D(i * 3, 0);
-		subdividedGeometry->vertexPositions[idx].y += D(i * 3 + 1, 0);
-		subdividedGeometry->vertexPositions[idx].z += D(i * 3 + 2, 0);
-	}
-
-#else
 	//TODO: We need energy minimization
 	//https://eigen.tuxfamily.org/dox-devel/group__LeastSquares.html
 	// I either have to solve it three times or combine them in one giant matrix
-	Eigen::MatrixXf B(projPoints.size(), vertices.size());
+	Eigen::MatrixXf B(projPoints.size(), movableVertices.size());
 	B.setZero();
 	for (auto& [vIdx, pIdx, value] : vToPContrib)
 	{
+		MFA_ASSERT(B.rows() > pIdx);
+		MFA_ASSERT(B.cols() > vIdx);
 		MFA_ASSERT(B(pIdx, vIdx) == 0.0f);
 		B(pIdx, vIdx) = value;
 	}
 	auto const BT = B.transpose();
 
-	Eigen::MatrixXf Y(vertices.size(), vertices.size());
+	Eigen::MatrixXf Y(allVertices.size(), movableVertices.size());
 	Y.setZero();
-	for (auto & [nIdx, myIdx, value] : vToVContrib)
+	for (auto& [nIdx, myIdx, value] : vToVContrib)
 	{
-		MFA_ASSERT(Y(myIdx, nIdx) == 0.0f);
-		Y(myIdx, nIdx) = value;
+		if (Y.rows() > myIdx && Y.cols() > nIdx)
+		{
+			MFA_ASSERT(Y(myIdx, nIdx) == 0.0f);
+			Y(myIdx, nIdx) = value;
+		}
 	}
 
 	auto const YT = Y.transpose();
@@ -603,10 +550,10 @@ void CC_SubdivisionApp::DeformMesh()
 		bz(i, 0) = sampledPoints[i].z - projPoints[i].z;
 	}
 
-	Eigen::MatrixXf yX(vertices.size(), 1);
-	Eigen::MatrixXf yY(vertices.size(), 1);
-	Eigen::MatrixXf yZ(vertices.size(), 1);
-	for (int localIdx = 0; localIdx < static_cast<int>(vertices.size()); ++localIdx)
+	Eigen::MatrixXf yX(allVertices.size(), 1);
+	Eigen::MatrixXf yY(allVertices.size(), 1);
+	Eigen::MatrixXf yZ(allVertices.size(), 1);
+	for (int localIdx = 0; localIdx < static_cast<int>(allVertices.size()); ++localIdx)
 	{
 		auto const& laplacian = localIdxToLaplacian[localIdx];
 		yX(localIdx, 0) = -laplacian.x;
@@ -640,15 +587,13 @@ void CC_SubdivisionApp::DeformMesh()
 		return -1;
 	};
 
-	for (int i = 0; i < static_cast<int>(vertices.size()); ++i)
+	for (int i = 0; i < static_cast<int>(movableVertices.size()); ++i)
 	{
-		auto const idx = FindVertexIdx(vertices[i]);
+		auto const idx = FindVertexIdx(movableVertices[i]);
 		subdividedGeometry->vertexPositions[idx].x += Dx(i, 0);
 		subdividedGeometry->vertexPositions[idx].y += Dy(i, 0);
 		subdividedGeometry->vertexPositions[idx].z += Dz(i, 0);
 	}
-
-#endif
 
 	meshRenderer->UpdateGeometry(subdividedMesh, subdividedGeometry);
 }
