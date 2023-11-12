@@ -148,5 +148,5 @@ private:
 	glm::vec4 lightPosition = glm::vec4(100.0f, -100.0f, 0.0f, 100.0f);
 
 	int laplacianDistance = 5;
-	float laplacianWeight = 0.5f;
+	float laplacianWeight = 0.9f;
 };
