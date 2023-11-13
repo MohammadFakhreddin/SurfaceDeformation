@@ -58,7 +58,9 @@ namespace shared
 
         bool GetVertexNeighbors(int vertexIdx, std::set<int> & outVIds) const;
 
-        bool GetVertexPosition(int vertexIdx, glm::vec3 & outPosition);
+        bool GetVertexPosition(int vertexIdx, glm::vec3 & outPosition) const;
+
+        int GetVertexIdx(glm::vec3 const & position) const;
 
     private:
 

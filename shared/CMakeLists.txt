@@ -8,6 +8,10 @@ list(
     "${CMAKE_CURRENT_SOURCE_DIR}/CurtainMeshRenderer.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/Curve.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/Curve.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/Contribution.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/Contribution.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/Subdivision.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/Subdivision.cpp"
 )
 
 set(LIBRARY_NAME "Shared")

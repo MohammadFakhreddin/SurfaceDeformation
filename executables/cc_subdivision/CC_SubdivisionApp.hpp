@@ -114,8 +114,26 @@ private:
 	float curtainHeight = 0.5f;
 	float deltaS = 0.001f;
 
-	std::shared_ptr<Mesh> subdividedMesh{};
-	std::shared_ptr<Geometry> subdividedGeometry{};
+	std::vector<std::shared_ptr<Mesh>> subdividedMeshList{};
+	std::vector<std::shared_ptr<Geometry>> subdividedGeometryList{};
+
+	struct Contribution
+	{
+		int nextLvlVIdx = -1;			// Next level vertex idx
+		int prevLvlVIdx = -1;			// Prev level vertex idx
+		float amount = 0.0f;			// Contribution amount
+	};
+
+	struct ContributionsMap
+	{
+		int prevLevel = -1;
+		int nextLevel = -1;
+		std::vector<Contribution> contributions{};
+		std::unordered_map<int, int> prevLvlContribIdx{};
+		std::unordered_map<int, int> nextLvlContribIdx{};
+	};
+
+	std::vector<ContributionsMap> contributionList{};
 
 	bool rightMouseDown = false;
 	// This points are stored globally for better debugging and possible memory reuse.

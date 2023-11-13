@@ -216,7 +216,7 @@ bool shared::SurfaceMeshRenderer::GetVertexNeighbors(int const vertexIdx, std::s
 
 //------------------------------------------------------------
 
-bool shared::SurfaceMeshRenderer::GetVertexPosition(int const vertexIdx, glm::vec3 & outPosition)
+bool shared::SurfaceMeshRenderer::GetVertexPosition(int const vertexIdx, glm::vec3 & outPosition) const
 {
 	if (vertexIdx < 0 || vertexIdx >= static_cast<int>(_vertices.size()))
 	{
@@ -224,6 +224,26 @@ bool shared::SurfaceMeshRenderer::GetVertexPosition(int const vertexIdx, glm::ve
 	}
 	outPosition = _vertices[vertexIdx].position;
 	return true;
+}
+
+//------------------------------------------------------------
+
+int shared::SurfaceMeshRenderer::GetVertexIdx(glm::vec3 const& position) const
+{
+	for (int i = 0; i < static_cast<int>(_vertices.size()); ++i)
+	{
+		auto const& vPos = _vertices[i];
+		auto const distance2 =
+			std::pow(vPos.position.x - position.x, 2) +
+			std::pow(vPos.position.y - position.y, 2) +
+			std::pow(vPos.position.z - position.z, 2);
+
+		if (distance2 < glm::epsilon<float>() * glm::epsilon<float>())
+		{
+			return i;
+		}
+	}
+	return -1;
 }
 
 //------------------------------------------------------------

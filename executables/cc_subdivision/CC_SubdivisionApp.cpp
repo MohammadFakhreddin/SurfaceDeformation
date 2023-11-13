@@ -4,6 +4,8 @@
 #include "geometrycentral/surface/subdivide.h"
 #include "Curve.hpp"
 
+#include <omp.h>
+
 using namespace geometrycentral::surface;
 
 using namespace MFA;
@@ -22,6 +24,9 @@ using namespace shared;
 CC_SubdivisionApp::CC_SubdivisionApp()
 {
 	MFA_LOG_DEBUG("Loading...");
+
+	omp_set_num_threads(static_cast<int>(static_cast<float>(std::thread::hardware_concurrency()) * 0.8f));
+	MFA_LOG_INFO("Number of available workers are: %d", omp_get_max_threads());
 
 	path = Path::Instantiate();
 
@@ -126,14 +131,14 @@ CC_SubdivisionApp::CC_SubdivisionApp()
 
 	std::tie(originalMesh, originalGeometry) = readManifoldSurfaceMesh(Path::Instance->Get("models/cube.obj"));
 
-	subdividedMesh = originalMesh->copy();
-	subdividedGeometry = originalGeometry->copy();
+	subdividedMeshList.emplace_back(originalMesh->copy());
+	subdividedGeometryList.emplace_back(originalGeometry->copy());
 
 	meshRenderer = std::make_shared<MeshRenderer>(
 		colorPipeline,
 		wireFramePipeline,
-		subdividedMesh,
-		subdividedGeometry
+		subdividedMeshList[subdivisionLevel],
+		subdividedGeometryList[subdivisionLevel]
 	);
 	curtainRenderer = std::make_shared<CurtainRenderer>(
 		noCullColorPipeline,
@@ -317,15 +322,19 @@ void CC_SubdivisionApp::OnUI()
 			subdivisionLevel = 0;
 		}
 
-		subdividedMesh = originalMesh->copy();
-		subdividedGeometry = originalGeometry->reinterpretTo(*subdividedMesh);
-
-		for (int i = 0; i < subdivisionLevel; ++i)
+		
+		for (int lvl = static_cast<int>(subdividedMeshList.size()) - 1; lvl < subdivisionLevel; ++lvl)
 		{
+			std::shared_ptr subdividedMesh = subdividedMeshList[lvl]->copy();
+			std::shared_ptr subdividedGeometry = subdividedGeometryList[lvl]->reinterpretTo(*subdividedMesh);
+
 			catmullClarkSubdivide(*subdividedMesh, *subdividedGeometry);
+
+			subdividedMeshList.emplace_back(subdividedMesh);
+			subdividedGeometryList.emplace_back(subdividedGeometry);
 		}
 
-		meshRenderer->UpdateGeometry(subdividedMesh, subdividedGeometry);
+		meshRenderer->UpdateGeometry(subdividedMeshList[subdivisionLevel], subdividedGeometryList[subdivisionLevel]);
 		meshCollisionTriangles = meshRenderer->GetCollisionTriangles(meshModelMat);
 
 		ClearCurtain();
@@ -567,35 +576,19 @@ void CC_SubdivisionApp::DeformMesh()
 	auto const Dy = SVD.solve((BT * by * (1.0f - laplacianWeight)) + (YT * yY * laplacianWeight));
 	auto const Dz = SVD.solve((BT * bz * (1.0f - laplacianWeight)) + (YT * yZ * laplacianWeight));
 
-	auto const& vertexPositions = subdividedGeometry->vertexPositions;
-
-	auto const FindVertexIdx = [&vertexPositions](glm::vec3 const& position)->int
-	{
-		for (int i = 0; i < static_cast<int>(vertexPositions.size()); ++i)
-		{
-			auto const& vPos = vertexPositions[i];
-			auto const distance2 = 
-				std::pow(vPos.x - position.x, 2) +
-				std::pow(vPos.y - position.y, 2) +
-				std::pow(vPos.z - position.z, 2);
-
-			if (distance2 < glm::epsilon<float>() * glm::epsilon<float>())
-			{
-				return i;
-			}
-		}
-		return -1;
-	};
+	auto const& subdividedGeometry = subdividedGeometryList[subdivisionLevel];
+	auto const& subdividedMesh = subdividedMeshList[subdivisionLevel];
 
 	for (int i = 0; i < static_cast<int>(movableVertices.size()); ++i)
 	{
-		auto const idx = FindVertexIdx(movableVertices[i]);
+		auto const idx = meshRenderer->GetVertexIdx(movableVertices[i]);
 		subdividedGeometry->vertexPositions[idx].x += Dx(i, 0);
 		subdividedGeometry->vertexPositions[idx].y += Dy(i, 0);
 		subdividedGeometry->vertexPositions[idx].z += Dz(i, 0);
 	}
 
 	meshRenderer->UpdateGeometry(subdividedMesh, subdividedGeometry);
+	meshCollisionTriangles = meshRenderer->GetCollisionTriangles(meshModelMat);
 }
 
 //-----------------------------------------------------
