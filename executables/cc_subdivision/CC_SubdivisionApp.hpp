@@ -70,6 +70,14 @@ private:
 		std::vector<std::tuple<int, int, float>>& outVToPContrib
 	) const;
 
+	void CalcLaplacianContribution(
+		std::vector<glm::vec3> & movableVertices,
+		std::vector<int> & vertexGIndices,
+		std::vector<glm::vec3> & allVertices,									// All vertices must contain movable vertices as well
+		std::vector<std::tuple<int, int, float>> & vToVContrib,
+		std::unordered_map<int, glm::vec3> & localIdxToLaplacian
+	);
+
 	void ClearRaycastPoints();
 
 	void ClearPorjectedPoints();

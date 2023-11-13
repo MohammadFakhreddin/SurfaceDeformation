@@ -472,91 +472,15 @@ void CC_SubdivisionApp::DeformMesh()
 	CalcVertexToPointContribution(movableVertices, vertexGIndices, vToPContrib);	// Global indices
 
 	std::vector<glm::vec3> allVertices(movableVertices.begin(), movableVertices.end());
-
-	std::unordered_map<int, int> gToLVMap{};												// Global to local vertex map
-	for (int lIdx = 0; lIdx < static_cast<int>(vertexGIndices.size()); ++lIdx)
-	{
-		auto wIdx = vertexGIndices[lIdx];
-		MFA_ASSERT(gToLVMap.contains(wIdx) == false);
-		gToLVMap[wIdx] = lIdx;
-	}
-	// TODO: Move this to a separate function
 	std::vector<std::tuple<int, int, float>> vToVContrib{};									// For laplacian
-	std::unordered_map<int, glm::vec3> localIdxToLaplacian{};								// Local index to laplacian
-	{
-		std::vector<int> queryIndices = vertexGIndices;
-		for (int itrCount = 0; itrCount < laplacianDistance; ++itrCount)
-		{
-			std::vector<int> nextQueryIndices {};
-			for (auto myGIdx : queryIndices)
-			{
-				MFA_ASSERT(gToLVMap.contains(myGIdx));
-				auto myLIdx = gToLVMap[myGIdx];
-
-				std::set<int> allVertexNeighbors{};
-				{
-					bool result = meshRenderer->GetVertexNeighbors(myGIdx, allVertexNeighbors);
-					MFA_ASSERT(result == true);
-				}
-
-				glm::vec3 laplacian = allVertices[myLIdx];
-				bool isMovable = itrCount < laplacianDistance - 1;
-				bool canInsert = itrCount < laplacianDistance;
-
-				std::vector<int> validNeighbors{};
-				for (auto& neighGIdx : allVertexNeighbors)
-				{
-					auto const findLIdResult = gToLVMap.find(neighGIdx);
-					if (findLIdResult == gToLVMap.end())
-					{
-						if (canInsert == true)
-						{
-							glm::vec3 position = {};
-							{
-								bool result = meshRenderer->GetVertexPosition(neighGIdx, position);
-								MFA_ASSERT(result == true);
-							}
-
-							auto const neighLIdx = static_cast<int>(allVertices.size());
-							if (isMovable == true)
-							{
-								movableVertices.emplace_back(position);
-							}
-							allVertices.emplace_back(position);
-							vertexGIndices.emplace_back(neighGIdx);
-							nextQueryIndices.emplace_back(neighGIdx);
-							gToLVMap[neighGIdx] = neighLIdx;
-
-							validNeighbors.emplace_back(neighGIdx);
-						}
-					}
-					else
-					{
-						validNeighbors.emplace_back(neighGIdx);
-					}
-				}
-
-				float weight = 1.0f / static_cast<float>(validNeighbors.size());
-
-				for (auto& neighGIdx : validNeighbors)
-				{
-					auto const findLIdResult = gToLVMap.find(neighGIdx);
-
-					if (findLIdResult != gToLVMap.end())
-					{
-						auto const neighLIdx = findLIdResult->second;
-						laplacian -= weight * allVertices[neighLIdx];
-						vToVContrib.emplace_back(std::tuple{neighLIdx, myLIdx, -weight});
-					} 
-				}
-
-				vToVContrib.emplace_back(std::tuple{myLIdx, myLIdx, 1.0f});
-				
-				localIdxToLaplacian[myLIdx] = laplacian;
-			}
-			queryIndices = nextQueryIndices;
-		}
-	}
+	std::unordered_map<int, glm::vec3> localIdxToLaplacian{};
+	CalcLaplacianContribution(
+		movableVertices, 
+		vertexGIndices,
+		allVertices, 
+		vToVContrib, 
+		localIdxToLaplacian
+	);
 
 	//TODO: We need energy minimization
 	//https://eigen.tuxfamily.org/dox-devel/group__LeastSquares.html
@@ -801,10 +725,6 @@ void CC_SubdivisionApp::CalcVertexToPointContribution(
 	std::vector<std::tuple<int, int, float>>& outVToPContrib
 ) const
 {
-	outVertices.clear();
-	outVertexIndices.clear();
-	outVToPContrib.clear();
-
 	std::unordered_map<int, int> vGtoLIdx{}; // Vertex global to local idx
 
 	auto FindOrInsertVertex = [&](int globalIdx, glm::vec3 const & position)->int
@@ -849,6 +769,101 @@ void CC_SubdivisionApp::CalcVertexToPointContribution(
 		outVToPContrib.emplace_back(std::tuple{ FindOrInsertVertex(idx0, v0), i, coordinate.x });
 		outVToPContrib.emplace_back(std::tuple{ FindOrInsertVertex(idx1, v1), i, coordinate.y });
 		outVToPContrib.emplace_back(std::tuple{ FindOrInsertVertex(idx2, v2), i, coordinate.z });
+	}
+}
+
+//-----------------------------------------------------
+
+void CC_SubdivisionApp::CalcLaplacianContribution(
+	std::vector<glm::vec3> & movableVertices,
+	std::vector<int> & vertexGIndices,
+	std::vector<glm::vec3> & allVertices,														// All vertices must contain movable vertices as well
+	std::vector<std::tuple<int, int, float>> & vToVContrib,									// For laplacian
+	std::unordered_map<int, glm::vec3> & localIdxToLaplacian
+)
+{
+	std::unordered_map<int, int> gToLVMap{};												// Global to local vertex map
+	for (int lIdx = 0; lIdx < static_cast<int>(vertexGIndices.size()); ++lIdx)
+	{
+		auto wIdx = vertexGIndices[lIdx];
+		MFA_ASSERT(gToLVMap.contains(wIdx) == false);
+		gToLVMap[wIdx] = lIdx;
+	}
+
+	// Local index to laplacian
+	{
+		std::vector<int> queryIndices = vertexGIndices;
+		for (int itrCount = 0; itrCount < laplacianDistance; ++itrCount)
+		{
+			std::vector<int> nextQueryIndices{};
+			for (auto myGIdx : queryIndices)
+			{
+				MFA_ASSERT(gToLVMap.contains(myGIdx));
+				auto myLIdx = gToLVMap[myGIdx];
+
+				std::set<int> allVertexNeighbors{};
+				{
+					bool result = meshRenderer->GetVertexNeighbors(myGIdx, allVertexNeighbors);
+					MFA_ASSERT(result == true);
+				}
+
+				glm::vec3 laplacian = allVertices[myLIdx];
+				bool isMovable = itrCount < laplacianDistance - 1;
+				bool canInsert = itrCount < laplacianDistance;
+
+				std::vector<int> validNeighbors{};
+				for (auto& neighGIdx : allVertexNeighbors)
+				{
+					auto const findLIdResult = gToLVMap.find(neighGIdx);
+					if (findLIdResult == gToLVMap.end())
+					{
+						if (canInsert == true)
+						{
+							glm::vec3 position = {};
+							{
+								bool result = meshRenderer->GetVertexPosition(neighGIdx, position);
+								MFA_ASSERT(result == true);
+							}
+
+							auto const neighLIdx = static_cast<int>(allVertices.size());
+							if (isMovable == true)
+							{
+								movableVertices.emplace_back(position);
+							}
+							allVertices.emplace_back(position);
+							vertexGIndices.emplace_back(neighGIdx);
+							nextQueryIndices.emplace_back(neighGIdx);
+							gToLVMap[neighGIdx] = neighLIdx;
+
+							validNeighbors.emplace_back(neighGIdx);
+						}
+					}
+					else
+					{
+						validNeighbors.emplace_back(neighGIdx);
+					}
+				}
+
+				float weight = 1.0f / static_cast<float>(validNeighbors.size());
+
+				for (auto& neighGIdx : validNeighbors)
+				{
+					auto const findLIdResult = gToLVMap.find(neighGIdx);
+
+					if (findLIdResult != gToLVMap.end())
+					{
+						auto const neighLIdx = findLIdResult->second;
+						laplacian -= weight * allVertices[neighLIdx];
+						vToVContrib.emplace_back(std::tuple{ neighLIdx, myLIdx, -weight });
+					}
+				}
+
+				vToVContrib.emplace_back(std::tuple{ myLIdx, myLIdx, 1.0f });
+
+				localIdxToLaplacian[myLIdx] = laplacian;
+			}
+			queryIndices = nextQueryIndices;
+		}
 	}
 }
 
