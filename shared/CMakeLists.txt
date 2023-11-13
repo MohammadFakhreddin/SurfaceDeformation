@@ -12,6 +12,8 @@ list(
     "${CMAKE_CURRENT_SOURCE_DIR}/Contribution.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/Subdivision.hpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/Subdivision.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/SurfaceMesh.hpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/SurfaceMesh.cpp"
 )
 
 set(LIBRARY_NAME "Shared")

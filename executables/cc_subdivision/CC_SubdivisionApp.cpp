@@ -133,15 +133,17 @@ CC_SubdivisionApp::CC_SubdivisionApp()
 
 	std::tie(originalMesh, originalGeometry) = readManifoldSurfaceMesh(Path::Instance->Get("models/cube.obj"));
 
-	subdividedMeshList.emplace_back(originalMesh->copy());
-	subdividedGeometryList.emplace_back(originalGeometry->copy());
+	std::shared_ptr copyMesh = originalMesh->copy();
+	std::shared_ptr copyGeom = originalGeometry->reinterpretTo(*copyMesh);
+
+	surfaceMeshList.emplace_back(std::make_shared<shared::SurfaceMesh>(copyMesh, copyGeom));
+
 	subdivisionDirtyStatus.emplace_back(false);
 
 	meshRenderer = std::make_shared<MeshRenderer>(
 		colorPipeline,
 		wireFramePipeline,
-		subdividedMeshList[subdivisionLevel],
-		subdividedGeometryList[subdivisionLevel]
+		surfaceMeshList[subdivisionLevel]
 	);
 	curtainRenderer = std::make_shared<CurtainRenderer>(
 		noCullColorPipeline,
@@ -326,16 +328,15 @@ void CC_SubdivisionApp::OnUI()
 		}
 
 		// TODO: Move to a function
-		for (int lvl = static_cast<int>(subdividedMeshList.size()) - 1; lvl < subdivisionLevel; ++lvl)
+		for (int lvl = static_cast<int>(surfaceMeshList.size()) - 1; lvl < subdivisionLevel; ++lvl)
 		{
-			std::shared_ptr subdividedMesh = subdividedMeshList[lvl]->copy();
-			std::shared_ptr subdividedGeometry = subdividedGeometryList[lvl]->reinterpretTo(*subdividedMesh);
+			std::shared_ptr subdividedMesh = surfaceMeshList[lvl]->GetMesh()->copy();
+			std::shared_ptr subdividedGeometry = surfaceMeshList[lvl]->GetGeometry()->reinterpretTo(*subdividedMesh);
 
 			std::shared_ptr contribMap = shared::CatmullClarkSubdivide(*subdividedMesh, *subdividedGeometry);
 
 			contributionMapList.emplace_back(contribMap);
-			subdividedMeshList.emplace_back(subdividedMesh);
-			subdividedGeometryList.emplace_back(subdividedGeometry);
+			surfaceMeshList.emplace_back(std::make_shared<shared::SurfaceMesh>(subdividedMesh, subdividedGeometry));
 			subdivisionDirtyStatus.emplace_back(false);
 		}
 
@@ -343,8 +344,8 @@ void CC_SubdivisionApp::OnUI()
 		{
 			if (subdivisionDirtyStatus[lvl] == true)
 			{
-				std::shared_ptr subdividedMesh = subdividedMeshList[lvl - 1]->copy();
-				std::shared_ptr subdividedGeometry = subdividedGeometryList[lvl - 1]->reinterpretTo(*subdividedMesh);
+				std::shared_ptr subdividedMesh = surfaceMeshList[lvl - 1]->GetMesh()->copy();
+				std::shared_ptr subdividedGeometry = surfaceMeshList[lvl - 1]->GetGeometry()->reinterpretTo(*subdividedMesh);
 
 				geometrycentral::surface::catmullClarkSubdivide(*subdividedMesh, *subdividedGeometry);
 
@@ -358,15 +359,12 @@ void CC_SubdivisionApp::OnUI()
 					}
 				}
 
-				subdividedMeshList[lvl] = subdividedMesh;
-				subdividedGeometryList[lvl] = subdividedGeometry;
-
+				surfaceMeshList[lvl]->UpdateGeometry(subdividedMesh, subdividedGeometry);
 				subdivisionDirtyStatus[lvl] = false;
-
 			}
 		}
 
-		meshRenderer->UpdateGeometry(subdividedMeshList[subdivisionLevel], subdividedGeometryList[subdivisionLevel]);
+		meshRenderer->UpdateGeometry(surfaceMeshList[subdivisionLevel]);
 		meshCollisionTriangles = meshRenderer->GetCollisionTriangles(meshModelMat);
 
 		ClearCurtain();
@@ -396,7 +394,7 @@ void CC_SubdivisionApp::OnUI()
 		{
 			DeformMesh();
 
-			for (int lvl = subdivisionLevel + 1; lvl < static_cast<int>(subdividedMeshList.size()); ++lvl)
+			for (int lvl = subdivisionLevel + 1; lvl < static_cast<int>(surfaceMeshList.size()); ++lvl)
 			{
 				subdivisionDirtyStatus[lvl] = true;
 			}
@@ -482,7 +480,6 @@ void CC_SubdivisionApp::DeformMesh()
 		localIdxToLaplacian
 	);
 
-	//TODO: We need energy minimization
 	//https://eigen.tuxfamily.org/dox-devel/group__LeastSquares.html
 	// I either have to solve it three times or combine them in one giant matrix
 	Eigen::MatrixXf B(projPoints.size(), movableVertices.size());
@@ -538,8 +535,8 @@ void CC_SubdivisionApp::DeformMesh()
 	auto const Dy = SVD.solve((BT * by * (1.0f - laplacianWeight)) + (YT * yY * laplacianWeight));
 	auto const Dz = SVD.solve((BT * bz * (1.0f - laplacianWeight)) + (YT * yZ * laplacianWeight));
 
-	auto const& subdividedGeometry = subdividedGeometryList[subdivisionLevel];
-	auto const& subdividedMesh = subdividedMeshList[subdivisionLevel];
+	auto const& subdividedGeometry = surfaceMeshList[subdivisionLevel]->GetGeometry();
+	auto const& subdividedMesh = surfaceMeshList[subdivisionLevel]->GetMesh();
 
 	if (deformationsPerLvl.contains(subdivisionLevel) == false)
 	{
@@ -566,7 +563,8 @@ void CC_SubdivisionApp::DeformMesh()
 		);
 	}
 
-	meshRenderer->UpdateGeometry(subdividedMesh, subdividedGeometry);
+	surfaceMeshList[subdivisionLevel]->UpdateGeometry(subdividedMesh, subdividedGeometry);
+	meshRenderer->UpdateGeometry(surfaceMeshList[subdivisionLevel]);
 	meshCollisionTriangles = meshRenderer->GetCollisionTriangles(meshModelMat);
 }
 

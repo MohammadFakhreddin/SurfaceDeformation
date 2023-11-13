@@ -4,6 +4,7 @@
 #include "geometrycentral/surface/meshio.h"
 #include "RenderTypes.hpp"
 #include "Collision.hpp"
+#include "SurfaceMesh.hpp"
 
 namespace shared
 {
@@ -21,8 +22,7 @@ namespace shared
     	explicit SurfaceMeshRenderer(
             std::shared_ptr<Pipeline> colorPipeline,
             std::shared_ptr<Pipeline> wireFramePipeline,
-			std::shared_ptr<Mesh> mesh,
-            std::shared_ptr<Geometry> geometry
+            std::shared_ptr<SurfaceMesh> surfaceMesh
         );
 
         struct RenderOptions
@@ -46,10 +46,7 @@ namespace shared
             std::vector<InstanceOptions> const& instances
         );
 
-        void UpdateGeometry(
-            std::shared_ptr<Mesh> mesh,
-            std::shared_ptr<Geometry> geometry
-        );
+        void UpdateGeometry(std::shared_ptr<SurfaceMesh> surfaceMesh);
 
         [[nodiscard]]
         std::vector<CollisionTriangle> GetCollisionTriangles(glm::mat4 const & model) const;
@@ -66,12 +63,6 @@ namespace shared
 
         void UpdateGeometry();
 
-        void UpdateCpuVertices();
-
-        void UpdateCpuIndices();
-
-        void UpdateCollisionTriangles();
-
         void UpdateVertexBuffer(RecordState const& recordState);
 
         void UpdateIndexBuffer(RecordState const& recordState);
@@ -81,11 +72,13 @@ namespace shared
         std::shared_ptr<Pipeline> _colorPipeline{};
         std::shared_ptr<Pipeline> _wireFramePipeline{};
 
-        std::shared_ptr<geometrycentral::surface::ManifoldSurfaceMesh> _mesh {};
-        std::shared_ptr<geometrycentral::surface::VertexPositionGeometry> _geometry {};
+        std::shared_ptr<SurfaceMesh> _surfaceMesh{};
+
+        //std::shared_ptr<geometrycentral::surface::ManifoldSurfaceMesh> _mesh {};
+        //std::shared_ptr<geometrycentral::surface::VertexPositionGeometry> _geometry {};
         
-        std::vector<Pipeline::Vertex> _vertices{};
-        std::vector<Index> _indices{};
+        //std::vector<Pipeline::Vertex> _vertices{};
+        //std::vector<Index> _indices{};
         int _bufferDirtyCounter = 0;
 
         std::vector<std::shared_ptr<MFA::RT::BufferAndMemory>> _vertexBuffers{};
@@ -94,12 +87,12 @@ namespace shared
         std::vector<std::shared_ptr<MFA::RT::BufferAndMemory>> _indexBuffers{};
         std::vector<size_t> _indexBufferSizes{};
 
-        std::vector<std::tuple<int, int, int>> _triangles{};
-        std::unordered_map<int, std::vector<int>> _vertexNeighbourTriangles{};
-        std::unordered_map<int, std::set<int>> _vertexNeighbourVertices{};
-        std::vector<glm::vec3> _triangleNormals{};
+        //std::vector<std::tuple<int, int, int>> _triangles{};
+        //std::unordered_map<int, std::vector<int>> _vertexNeighbourTriangles{};
+        //std::unordered_map<int, std::set<int>> _vertexNeighbourVertices{};
+        //std::vector<glm::vec3> _triangleNormals{};
 
-        std::vector<CollisionTriangle> _collisionTriangles{};
+        //std::vector<CollisionTriangle> _collisionTriangles{};
 
     };
 };

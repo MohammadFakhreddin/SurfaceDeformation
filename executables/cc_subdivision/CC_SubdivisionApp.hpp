@@ -125,8 +125,7 @@ private:
 	float deltaS = 0.001f;
 
 	std::vector<std::shared_ptr<shared::ContributionMap>> contributionMapList{};
-	std::vector<std::shared_ptr<Mesh>> subdividedMeshList{};
-	std::vector<std::shared_ptr<Geometry>> subdividedGeometryList{};
+	std::vector<std::shared_ptr<shared::SurfaceMesh>> surfaceMeshList{};
 	std::vector<bool> subdivisionDirtyStatus{};
 	std::unordered_map<int, std::vector<std::tuple<int, geometrycentral::Vector3>>> deformationsPerLvl{};
 

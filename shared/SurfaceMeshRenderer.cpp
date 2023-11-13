@@ -15,13 +15,11 @@ using namespace geometrycentral;
 shared::SurfaceMeshRenderer::SurfaceMeshRenderer(
 	std::shared_ptr<Pipeline> colorPipeline,
 	std::shared_ptr<Pipeline> wireFramePipeline,
-	std::shared_ptr<Mesh> mesh,
-	std::shared_ptr<Geometry> geometry
+	std::shared_ptr<SurfaceMesh> surfaceMesh
 )
 	: _colorPipeline(std::move(colorPipeline))
 	, _wireFramePipeline(std::move(wireFramePipeline))
-	, _mesh(std::move(mesh))
-	, _geometry(std::move(geometry))
+	, _surfaceMesh(std::move(surfaceMesh))
 {
 	UpdateGeometry();
 }
@@ -30,10 +28,6 @@ shared::SurfaceMeshRenderer::SurfaceMeshRenderer(
 
 void shared::SurfaceMeshRenderer::UpdateGeometry()
 {
-	UpdateCpuIndices();
-	UpdateCpuVertices();
-	UpdateCollisionTriangles();
-
 	auto const maxFramePerFlight = LogicalDevice::Instance->GetMaxFramePerFlight();
 	_bufferDirtyCounter = static_cast<int>(maxFramePerFlight);
 
@@ -102,7 +96,7 @@ void shared::SurfaceMeshRenderer::Render(
 
 		RB::DrawIndexed(
 			recordState,
-			static_cast<int>(_indices.size()),
+			static_cast<int>(_surfaceMesh->GetIndices().size()),
 			1,
 			0
 		);
@@ -141,7 +135,7 @@ void shared::SurfaceMeshRenderer::Render(
 
 			RB::DrawIndexed(
 				recordState,
-				static_cast<int>(_indices.size()),
+				static_cast<int>(_surfaceMesh->GetIndices().size()),
 				1,
 				0
 			);
@@ -152,13 +146,9 @@ void shared::SurfaceMeshRenderer::Render(
 
 //------------------------------------------------------------
 
-void shared::SurfaceMeshRenderer::UpdateGeometry(
-	std::shared_ptr<Mesh> mesh,
-	std::shared_ptr<Geometry> geometry
-)
+void shared::SurfaceMeshRenderer::UpdateGeometry(std::shared_ptr<SurfaceMesh> surfaceMesh)
 {
-	_mesh = std::move(mesh);
-	_geometry = std::move(geometry);
+	_surfaceMesh = std::move(surfaceMesh);
 	UpdateGeometry();
 }
 
@@ -166,234 +156,35 @@ void shared::SurfaceMeshRenderer::UpdateGeometry(
 
 std::vector<CollisionTriangle> shared::SurfaceMeshRenderer::GetCollisionTriangles(glm::mat4 const& model) const
 {
-	std::vector<CollisionTriangle> result = _collisionTriangles;
-
-	#pragma omp parallel for
-	for (int i = 0; i < static_cast<int>(result.size()); ++i)
-	{
-		auto& triangle = result[i];
-
-		triangle.normal = glm::normalize(model * glm::vec4{ triangle.normal, 0.0f });
-		triangle.center = model * glm::vec4{ triangle.center, 1.0f };
-
-		for (auto& edgeNormal : triangle.edgeNormals)
-		{
-			edgeNormal = glm::normalize(model * glm::vec4{ edgeNormal, 0.0f });
-		}
-		for (auto& edgeVertex : triangle.edgeVertices)
-		{
-			edgeVertex = model * glm::vec4{ edgeVertex, 1.0f };
-		}
-	}
-
-	return result;
+	return _surfaceMesh->GetCollisionTriangles(model);
 }
 
 //------------------------------------------------------------
 
 bool shared::SurfaceMeshRenderer::GetVertexIndices(int const triangleIdx, std::tuple<int, int, int>& outVIds) const
 {
-	if (triangleIdx < 0 || triangleIdx >= _triangles.size())
-	{
-		return false;
-	}
-	outVIds = _triangles[triangleIdx];
-	return true;
+	return _surfaceMesh->GetVertexIndices(triangleIdx, outVIds);
 }
 
 //------------------------------------------------------------
 
 bool shared::SurfaceMeshRenderer::GetVertexNeighbors(int const vertexIdx, std::set<int>& outVIds) const
 {
-	auto const findResult = _vertexNeighbourVertices.find(vertexIdx);
-	if (findResult != _vertexNeighbourVertices.end())
-	{
-		outVIds = findResult->second;
-		return true;
-	}
-	return false;
+	return _surfaceMesh->GetVertexNeighbors(vertexIdx, outVIds);
 }
 
 //------------------------------------------------------------
 
 bool shared::SurfaceMeshRenderer::GetVertexPosition(int const vertexIdx, glm::vec3 & outPosition) const
 {
-	if (vertexIdx < 0 || vertexIdx >= static_cast<int>(_vertices.size()))
-	{
-		return false;
-	}
-	outPosition = _vertices[vertexIdx].position;
-	return true;
+	return _surfaceMesh->GetVertexPosition(vertexIdx, outPosition);
 }
 
 //------------------------------------------------------------
 
 int shared::SurfaceMeshRenderer::GetVertexIdx(glm::vec3 const& position) const
 {
-	for (int i = 0; i < static_cast<int>(_vertices.size()); ++i)
-	{
-		auto const& vPos = _vertices[i];
-		auto const distance2 =
-			std::pow(vPos.position.x - position.x, 2) +
-			std::pow(vPos.position.y - position.y, 2) +
-			std::pow(vPos.position.z - position.z, 2);
-
-		if (distance2 < glm::epsilon<float>() * glm::epsilon<float>())
-		{
-			return i;
-		}
-	}
-	return -1;
-}
-
-//------------------------------------------------------------
-
-void shared::SurfaceMeshRenderer::UpdateCpuVertices()
-{
-	_vertices.clear();
-	_triangleNormals.clear();
-
-	auto const positions = _geometry->vertexPositions.toVector();
-
-	for (int i = 0; i < static_cast<int>(_triangles.size()); ++i)
-	{
-		auto const& [idx0, idx1, idx2] = _triangles[i];
-
-		glm::vec3 const v0 = glm::vec3{ positions[idx0].x, positions[idx0].y, positions[idx0].z };
-		glm::vec3 const v1 = glm::vec3{ positions[idx1].x, positions[idx1].y, positions[idx1].z };
-		glm::vec3 const v2 = glm::vec3{ positions[idx2].x, positions[idx2].y, positions[idx2].z };
-
-		auto const cross = glm::normalize(glm::cross(v1 - v0, v2 - v1));
-
-		_triangleNormals.emplace_back(cross);
-	}
-
-	for (int vIdx = 0; vIdx < positions.size(); ++vIdx)
-	{
-		glm::vec3 normal{};
-		for (auto const& triIdx : _vertexNeighbourTriangles[vIdx])
-		{
-			normal += _triangleNormals[triIdx];
-		}
-		normal = glm::normalize(normal);
-		
-		_vertices.emplace_back(Pipeline::Vertex{
-			.position = glm::vec3 {positions[vIdx].x, positions[vIdx].y, positions[vIdx].z},
-			.normal = normal
-		});
-	}
-}
-
-//------------------------------------------------------------
-
-void shared::SurfaceMeshRenderer::UpdateCpuIndices()
-{
-	_indices.clear();
-	_vertexNeighbourTriangles.clear();
-	_vertexNeighbourVertices.clear();
-	_triangles.clear();
-	
-	auto const faceVertexList = _mesh->getFaceVertexList();
-	for (auto const& faceVertices : faceVertexList)
-	{
-		if (faceVertices.size() == 3)
-		{
-			int idx0 = faceVertices[0];
-			int idx1 = faceVertices[1];
-			int idx2 = faceVertices[2];
-
-			_indices.emplace_back(idx0);
-			_indices.emplace_back(idx1);
-			_indices.emplace_back(idx2);
-
-			_triangles.emplace_back(std::tuple{ idx0, idx1, idx2 });
-
-			_vertexNeighbourTriangles[idx0].emplace_back(_triangles.size() - 1);
-			_vertexNeighbourTriangles[idx1].emplace_back(_triangles.size() - 1);
-			_vertexNeighbourTriangles[idx2].emplace_back(_triangles.size() - 1);
-
-			_vertexNeighbourVertices[idx0].emplace(idx1);
-			_vertexNeighbourVertices[idx0].emplace(idx2);
-			_vertexNeighbourVertices[idx1].emplace(idx2);
-			_vertexNeighbourVertices[idx1].emplace(idx0);
-			_vertexNeighbourVertices[idx2].emplace(idx0);
-			_vertexNeighbourVertices[idx2].emplace(idx1);
-		}
-		else if (faceVertices.size() == 4)
-		{
-			{// Triangle0
-				int idx0 = faceVertices[0];
-				int idx1 = faceVertices[1];
-				int idx2 = faceVertices[2];
-
-				_indices.emplace_back(idx0);
-				_indices.emplace_back(idx1);
-				_indices.emplace_back(idx2);
-				
-				_triangles.emplace_back(std::tuple{ idx0, idx1, idx2 });
-
-				_vertexNeighbourTriangles[idx0].emplace_back(_triangles.size() - 1);
-				_vertexNeighbourTriangles[idx1].emplace_back(_triangles.size() - 1);
-				_vertexNeighbourTriangles[idx2].emplace_back(_triangles.size() - 1);
-
-				_vertexNeighbourVertices[idx0].emplace(idx1);
-				_vertexNeighbourVertices[idx0].emplace(idx2);
-				_vertexNeighbourVertices[idx1].emplace(idx2);
-				_vertexNeighbourVertices[idx1].emplace(idx0);
-				_vertexNeighbourVertices[idx2].emplace(idx0);
-				_vertexNeighbourVertices[idx2].emplace(idx1);
-			}
-			{// Triangle1
-				int idx0 = faceVertices[2];
-				int idx1 = faceVertices[3];
-				int idx2 = faceVertices[0];
-
-				_indices.emplace_back(idx0);
-				_indices.emplace_back(idx1);
-				_indices.emplace_back(idx2);
-
-				_triangles.emplace_back(std::tuple{ idx0, idx1, idx2 });
-
-				_vertexNeighbourTriangles[idx0].emplace_back(_triangles.size() - 1);
-				_vertexNeighbourTriangles[idx1].emplace_back(_triangles.size() - 1);
-				_vertexNeighbourTriangles[idx2].emplace_back(_triangles.size() - 1);
-
-				_vertexNeighbourVertices[idx0].emplace(idx1);
-				_vertexNeighbourVertices[idx0].emplace(idx2);
-				_vertexNeighbourVertices[idx1].emplace(idx2);
-				_vertexNeighbourVertices[idx1].emplace(idx0);
-				_vertexNeighbourVertices[idx2].emplace(idx0);
-				_vertexNeighbourVertices[idx2].emplace(idx1);
-			}
-		}
-		else
-		{
-			MFA_ASSERT(false);
-		}
-	}
-}
-
-//------------------------------------------------------------
-
-void shared::SurfaceMeshRenderer::UpdateCollisionTriangles()
-{
-	_collisionTriangles.resize(_triangles.size());
-	#pragma omp parallel for
-	for (int i = 0; i < static_cast<int>(_triangles.size()); ++i)
-	{
-		auto [idx0, idx1, idx2] = _triangles[i];
-
-		auto const& v0 = _vertices[idx0].position;
-		auto const& v1 = _vertices[idx1].position;
-		auto const& v2 = _vertices[idx2].position;
-
-		Collision::UpdateCollisionTriangle(
-			v0,
-			v1,
-			v2,
-			_collisionTriangles[i]
-		);
-	}
+	return _surfaceMesh->GetVertexIdx(position);
 }
 
 //------------------------------------------------------------
@@ -404,9 +195,10 @@ void shared::SurfaceMeshRenderer::UpdateVertexBuffer(RecordState const& recordSt
 	auto* vkDevice = device->GetVkDevice();
 	auto* physicalDevice = device->GetPhysicalDevice();
 
-	Alias const alias{ _vertices.data(), _vertices.size() };
+	auto & vertices = _surfaceMesh->GetVertices();
+	Alias const alias{ vertices.data(), vertices.size() };
 
-	auto const vertexBufferSize = sizeof(Pipeline::Vertex) * _vertices.size();
+	auto const vertexBufferSize = sizeof(Pipeline::Vertex) * vertices.size();
 
 	if (vertexBufferSize > _vertexBufferSizes[recordState.frameIndex])
 	{
@@ -435,9 +227,10 @@ void shared::SurfaceMeshRenderer::UpdateIndexBuffer(RecordState const& recordSta
 	auto* vkDevice = device->GetVkDevice();
 	auto* vkPhysicalDevice = device->GetPhysicalDevice();
 
-	Alias const alias{ _indices.data(), _indices.size() };
+	auto & indices = _surfaceMesh->GetIndices();
+	Alias const alias{ indices.data(), indices.size() };
 
-	auto const indexBufferSize = sizeof(Index) * _indices.size();
+	auto const indexBufferSize = sizeof(Index) * indices.size();
 
 	if (indexBufferSize > _indexBufferSizes[recordState.frameIndex])
 	{
