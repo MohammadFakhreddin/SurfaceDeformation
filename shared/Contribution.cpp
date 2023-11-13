@@ -3,8 +3,11 @@
 #include <ext/scalar_constants.hpp>
 
 #include <omp.h>
+#include <Eigen/src/Core/Matrix.h>
+#include <Eigen/src/Core/util/Constants.h>
 
 #include "BedrockAssert.hpp"
+#include "geometrycentral/utilities/vector3.h"
 
 namespace shared
 {
@@ -12,8 +15,8 @@ namespace shared
 	//-----------------------------------------------------------------------------------------
 
 	ContributionMap::ContributionMap(
-		std::vector<glm::vec3> const& prevLvlVs,
-		std::vector<glm::vec3> const& nextLvlVs,
+		Vertices const& prevLvlVs,
+		Vertices const& nextLvlVs,
 		std::vector<ContribTuple> const& prevToNextContrib
 	)
 	{
@@ -26,39 +29,50 @@ namespace shared
 			auto const prevIdx = GetVertexIdx(prevLvlVs, prevLvlPos);
 			auto const nextIdx = GetVertexIdx(nextLvlVs, nextLvlPos);
 
-			auto fPrevRes = _prevLvlContribIdx.find(prevIdx);
-			if (fPrevRes != _prevLvlContribIdx.end())
-			{
-				fPrevRes->second.emplace_back(i);
-			}
-			else
-			{
-				_prevLvlContribIdx[prevIdx] = { i };
-			}
-			
-			auto fNextRes = _nextLvlContribIdx.find(nextIdx);
-			if (fNextRes != _nextLvlContribIdx.end())
-			{
-				fNextRes->second.emplace_back(i);
-			}
-			else
-			{
-				_nextLvlContribIdx[nextIdx] = { i };
-			}
-			
-			_contribs[i] = Contribution{
+			auto const contribIdx = i;
+
+			_contribs[contribIdx] = Contribution{
 				.nextLvlVIdx = prevIdx,
 				.prevLvlVIdx = nextIdx,
 				.amount = value
 			};
+		}
+
+		for (int i = 0; i < static_cast<int>(_contribs.size()); ++i)
+		{
+			auto const& contrib = _contribs[i];
+
+			auto const prevIdx = contrib.prevLvlVIdx;
+			auto const nextIdx = contrib.nextLvlVIdx;
+			auto const contribIdx = i;
+
+			auto fPrevRes = _prevLvlContribIdx.find(prevIdx);
+			if (fPrevRes != _prevLvlContribIdx.end())
+			{
+				fPrevRes->second.emplace_back(contribIdx);
+			}
+			else
+			{
+				_prevLvlContribIdx[prevIdx] = { contribIdx };
+			}
+
+			auto fNextRes = _nextLvlContribIdx.find(nextIdx);
+			if (fNextRes != _nextLvlContribIdx.end())
+			{
+				fNextRes->second.emplace_back(contribIdx);
+			}
+			else
+			{
+				_nextLvlContribIdx[nextIdx] = { contribIdx };
+			}
 		}
 	}
 
 	//-----------------------------------------------------------------------------------------
 
 	int ContributionMap::GetVertexIdx(
-		std::vector<glm::vec3> const& vertices, 
-		glm::vec3 const& position
+		Vertices const& vertices, 
+		Vector3 const& position
 	)
 	{
 		for (int i = 0; i < static_cast<int>(vertices.size()); ++i)

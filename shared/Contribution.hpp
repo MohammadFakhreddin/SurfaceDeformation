@@ -2,13 +2,16 @@
 
 #include <vector>
 #include <tuple>
-#include <vec3.hpp>
 #include <unordered_map>
+#include <Eigen/Eigen>
+
+#include <geometrycentral/utilities/vector3.h>
 
 namespace shared
 {
+    using Vector3 = geometrycentral::Vector3;
     // TODO: Rewrite this in a more meaningful well
-    using ContribTuple = std::tuple<glm::vec3, glm::vec3, float>;
+    using ContribTuple = std::tuple<Vector3, Vector3, float>;
 
     struct Contribution
     {
@@ -21,16 +24,18 @@ namespace shared
     {
     public:
 
+        using Vertices = Eigen::Matrix<Vector3, Eigen::Dynamic, 1>;
+
         explicit ContributionMap(
-            std::vector<glm::vec3> const & prevLvlVs,                                           // Previous lvl vertices
-            std::vector<glm::vec3> const & nextLvlVs,                                           // Next lvl vertices
+            Vertices const& prevLvlVs,                                           // Previous lvl vertices
+            Vertices const & nextLvlVs,                                           // Next lvl vertices
             std::vector<ContribTuple> const & prevToNextContrib      // Prev lvl to next lvl contribution
         );
 
         [[nodiscard]]
         static int GetVertexIdx(
-            std::vector<glm::vec3> const & vertices,
-            glm::vec3 const& position
+            Vertices const & vertices,
+            Vector3 const& position
         );
 
     private:

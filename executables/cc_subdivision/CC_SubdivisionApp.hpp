@@ -20,6 +20,8 @@
 
 #include <memory>
 
+#include "Contribution.hpp"
+
 class CC_SubdivisionApp
 {
 public:
@@ -31,17 +33,17 @@ public:
 	using CurtainRenderer = shared::CurtainMeshRenderer;
 	using CameraBufferTracker = MFA::HostVisibleBufferTracker<MFA::ColorPipeline::ViewProjection>;
 
-    explicit CC_SubdivisionApp();
+	explicit CC_SubdivisionApp();
 
-    ~CC_SubdivisionApp();
+	~CC_SubdivisionApp();
 
-    void Run();
+	void Run();
 
 private:
 
-    void Update();
+	void Update();
 
-	void Render(MFA::RT::CommandRecordState & recordState);
+	void Render(MFA::RT::CommandRecordState& recordState);
 
 	void OnUI();
 
@@ -52,9 +54,9 @@ private:
 	void DeformMesh();
 
 	void DrawPoints(
-		MFA::RT::CommandRecordState & recordState,
-		std::vector<glm::vec3> const& points, 
-		std::vector<glm::vec3> const& normals, 
+		MFA::RT::CommandRecordState& recordState,
+		std::vector<glm::vec3> const& points,
+		std::vector<glm::vec3> const& normals,
 		glm::vec4 const& color
 	) const;
 
@@ -63,13 +65,13 @@ private:
 	void ProjectCurtainPoints();
 
 	void CalcVertexToPointContribution(
-		std::vector<glm::vec3> & outVertices,
-		std::vector<int> & outVertexIndices,
-		std::vector<std::tuple<int, int, float>> & outVToPContrib
+		std::vector<glm::vec3>& outVertices,
+		std::vector<int>& outVertexIndices,
+		std::vector<std::tuple<int, int, float>>& outVToPContrib
 	) const;
 
 	void ClearRaycastPoints();
-	
+
 	void ClearPorjectedPoints();
 
 	void ClearSamplePoints();
@@ -114,8 +116,11 @@ private:
 	float curtainHeight = 0.5f;
 	float deltaS = 0.001f;
 
+	std::vector<std::shared_ptr<shared::ContributionMap>> contributionMapList{};
 	std::vector<std::shared_ptr<Mesh>> subdividedMeshList{};
 	std::vector<std::shared_ptr<Geometry>> subdividedGeometryList{};
+	std::vector<bool> subdivisionDirtyStatus{};
+	std::unordered_map<int, std::vector<std::tuple<int, geometrycentral::Vector3>>> deformationsPerLvl{};
 
 	struct Contribution
 	{

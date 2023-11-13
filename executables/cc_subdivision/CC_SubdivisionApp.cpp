@@ -6,6 +6,8 @@
 
 #include <omp.h>
 
+#include "Subdivision.hpp"
+
 using namespace geometrycentral::surface;
 
 using namespace MFA;
@@ -133,6 +135,7 @@ CC_SubdivisionApp::CC_SubdivisionApp()
 
 	subdividedMeshList.emplace_back(originalMesh->copy());
 	subdividedGeometryList.emplace_back(originalGeometry->copy());
+	subdivisionDirtyStatus.emplace_back(false);
 
 	meshRenderer = std::make_shared<MeshRenderer>(
 		colorPipeline,
@@ -322,16 +325,45 @@ void CC_SubdivisionApp::OnUI()
 			subdivisionLevel = 0;
 		}
 
-		
+		// TODO: Move to a function
 		for (int lvl = static_cast<int>(subdividedMeshList.size()) - 1; lvl < subdivisionLevel; ++lvl)
 		{
 			std::shared_ptr subdividedMesh = subdividedMeshList[lvl]->copy();
 			std::shared_ptr subdividedGeometry = subdividedGeometryList[lvl]->reinterpretTo(*subdividedMesh);
 
-			catmullClarkSubdivide(*subdividedMesh, *subdividedGeometry);
+			std::shared_ptr contribMap = shared::CatmullClarkSubdivide(*subdividedMesh, *subdividedGeometry);
 
+			contributionMapList.emplace_back(contribMap);
 			subdividedMeshList.emplace_back(subdividedMesh);
 			subdividedGeometryList.emplace_back(subdividedGeometry);
+			subdivisionDirtyStatus.emplace_back(false);
+		}
+
+		for (int lvl = 1; lvl <= subdivisionLevel; ++lvl)
+		{
+			if (subdivisionDirtyStatus[lvl] == true)
+			{
+				std::shared_ptr subdividedMesh = subdividedMeshList[lvl - 1]->copy();
+				std::shared_ptr subdividedGeometry = subdividedGeometryList[lvl - 1]->reinterpretTo(*subdividedMesh);
+
+				geometrycentral::surface::catmullClarkSubdivide(*subdividedMesh, *subdividedGeometry);
+
+				auto const findDeformationsResult = deformationsPerLvl.find(lvl);
+				if (findDeformationsResult != deformationsPerLvl.end())
+				{
+					auto & positions = subdividedGeometry->vertexPositions;
+					for (auto & [idx, deformation] : findDeformationsResult->second)
+					{
+						positions[idx] += deformation;
+					}
+				}
+
+				subdividedMeshList[lvl] = subdividedMesh;
+				subdividedGeometryList[lvl] = subdividedGeometry;
+
+				subdivisionDirtyStatus[lvl] = false;
+
+			}
 		}
 
 		meshRenderer->UpdateGeometry(subdividedMeshList[subdivisionLevel], subdividedGeometryList[subdivisionLevel]);
@@ -363,6 +395,11 @@ void CC_SubdivisionApp::OnUI()
 		if (rayCastPoints.size() >= 2 && ImGui::Button("Deform mesh"))
 		{
 			DeformMesh();
+
+			for (int lvl = subdivisionLevel + 1; lvl < static_cast<int>(subdividedMeshList.size()); ++lvl)
+			{
+				subdivisionDirtyStatus[lvl] = true;
+			}
 		}
 	}
 	ImGui::InputFloat4("Light position", reinterpret_cast<float *>(& lightPosition));
@@ -427,7 +464,8 @@ void CC_SubdivisionApp::DeformMesh()
 	ClearCurtain();
 
 	MFA_ASSERT(sampledPoints.size() == projPoints.size());
-	
+
+	// TODO: Start from here: Apply point contribution, We need to have v to P contribution from n number of subdivison before
 	std::vector<glm::vec3> movableVertices{};
 	std::vector<int> vertexGIndices{};
 	std::vector<std::tuple<int, int, float>> vToPContrib{};									// For projection
@@ -442,7 +480,7 @@ void CC_SubdivisionApp::DeformMesh()
 		MFA_ASSERT(gToLVMap.contains(wIdx) == false);
 		gToLVMap[wIdx] = lIdx;
 	}
-
+	// TODO: Move this to a separate function
 	std::vector<std::tuple<int, int, float>> vToVContrib{};									// For laplacian
 	std::unordered_map<int, glm::vec3> localIdxToLaplacian{};								// Local index to laplacian
 	{
@@ -579,12 +617,29 @@ void CC_SubdivisionApp::DeformMesh()
 	auto const& subdividedGeometry = subdividedGeometryList[subdivisionLevel];
 	auto const& subdividedMesh = subdividedMeshList[subdivisionLevel];
 
+	if (deformationsPerLvl.contains(subdivisionLevel) == false)
+	{
+		deformationsPerLvl[subdivisionLevel] = {};
+	}
+
 	for (int i = 0; i < static_cast<int>(movableVertices.size()); ++i)
 	{
 		auto const idx = meshRenderer->GetVertexIdx(movableVertices[i]);
+
 		subdividedGeometry->vertexPositions[idx].x += Dx(i, 0);
 		subdividedGeometry->vertexPositions[idx].y += Dy(i, 0);
 		subdividedGeometry->vertexPositions[idx].z += Dz(i, 0);
+
+		deformationsPerLvl[subdivisionLevel].emplace_back(
+			std::tuple{
+				idx,
+				Vector3 {
+					Dx(i, 0),
+					Dy(i, 0),
+					Dz(i, 0)
+				}
+			}
+		);
 	}
 
 	meshRenderer->UpdateGeometry(subdividedMesh, subdividedGeometry);

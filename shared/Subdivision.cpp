@@ -15,7 +15,7 @@ namespace shared
 		VertexPositionGeometry& geo
 	)
 	{
-		auto const prevLvlVs = geo.vertexPositions.toVector();
+		Eigen::Matrix<Vector3, Eigen::Dynamic, 1> const prevLvlVs = geo.vertexPositions.toVector();
 
 		std::unordered_map<Face, std::vector<std::tuple<Vertex, float>>> vToFContrib{};
 		std::unordered_map<Edge, std::vector<std::tuple<Vertex, float>>> vToEContrib{};
@@ -153,18 +153,21 @@ namespace shared
 		{
 			for (auto & [v, value] : items)
 			{
+				prevToNextContrib.emplace_back(std::tuple{ oldPositions[v], splitFacePositions[f], value });
 			}
 		}
 		for (auto & [e, items] : vToEContrib)
 		{
 			for (auto& [v, value] : items)
 			{
+				prevToNextContrib.emplace_back(std::tuple{ oldPositions[v], splitEdgePositions[e], value});
 			}
 		}
 		for (auto & [newV, items] : vToVContrib)
 		{
 			for (auto& [oldV, value] : items)
 			{
+				prevToNextContrib.emplace_back(std::tuple{ oldPositions[oldV], newPositions[newV], value});
 			}
 		}
 
