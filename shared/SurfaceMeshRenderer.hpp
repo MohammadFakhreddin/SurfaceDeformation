@@ -49,7 +49,7 @@ namespace shared
         void UpdateGeometry(std::shared_ptr<SurfaceMesh> surfaceMesh);
 
         [[nodiscard]]
-        std::vector<CollisionTriangle> GetCollisionTriangles(glm::mat4 const & model) const;
+        std::vector<CollisionTriangle> GetCollisionTriangles(glm::mat4 const& model) const;
 
         bool GetVertexIndices(int triangleIdx, std::tuple<int, int, int> & outVIds) const;
 

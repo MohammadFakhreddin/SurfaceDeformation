@@ -17,9 +17,9 @@ namespace shared
 	{
 		Eigen::Matrix<Vector3, Eigen::Dynamic, 1> const prevLvlVs = geo.vertexPositions.toVector();
 
-		std::unordered_map<Face, std::vector<std::tuple<Vertex, float>>> vToFContrib{};
-		std::unordered_map<Edge, std::vector<std::tuple<Vertex, float>>> vToEContrib{};
-		std::unordered_map<Vertex, std::vector<std::tuple<Vertex, float>>> vToVContrib{};
+		std::unordered_map<Face, std::unordered_map<Vertex, float>> vToFContrib{};
+		std::unordered_map<Edge, std::unordered_map<Vertex, float>> vToEContrib{};
+		std::unordered_map<Vertex, std::unordered_map<Vertex, float>> vToVContrib{};
 
 		VertexData<Vector3> oldPositions = geo.inputVertexPositions;
 
@@ -34,11 +34,21 @@ namespace shared
 				splitFacePositions[f] += geo.inputVertexPositions[v] / D;
 			}
 
-			vToFContrib[f] = {};
+			std::unordered_map<Vertex, float> map{};
 			for (Vertex vertex : f.adjacentVertices()) 
 			{
-				vToFContrib[f].emplace_back(std::tuple{ vertex, 1.0f / D });
+				float value = 1.0f / D;
+				auto findRes = map.find(vertex);
+				if (findRes != map.end())
+				{
+					findRes->second += value;
+				}
+				else
+				{
+					map[vertex] = value;
+				}
 			}
+			vToFContrib[f] = map;
 		}
 
 		EdgeData<Vector3> splitEdgePositions(mesh);
@@ -46,15 +56,34 @@ namespace shared
 			std::array<Face, 2> neigh{ e.halfedge().face(), e.halfedge().twin().face() };
 			splitEdgePositions[e] = (splitFacePositions[neigh[0]] + splitFacePositions[neigh[1]]) / 2.;
 
-			vToEContrib[e] = {};
+			std::unordered_map<Vertex, float> map{};
 			for (auto const & [vertex, value] : vToFContrib[neigh[0]])
 			{
-				vToEContrib[e].emplace_back(std::tuple{ vertex, value * 0.5f });
+				float value2 = value * 0.5f;
+				auto findRes = map.find(vertex);
+				if (findRes != map.end())
+				{
+					findRes->second += value2;
+				}
+				else
+				{
+					map[vertex] = value2;
+				}
 			}
 			for (auto const& [vertex, value] : vToFContrib[neigh[1]])
 			{
-				vToEContrib[e].emplace_back(std::tuple{ vertex, value * 0.5f });
+				float value2 = value * 0.5f;
+				auto findRes = map.find(vertex);
+				if (findRes != map.end())
+				{
+					findRes->second += value2;
+				}
+				else
+				{
+					map[vertex] = value2;
+				}
 			}
+			vToEContrib[e] = map;
 		}
 
 		for (Vertex v : mesh.vertices()) {
@@ -63,9 +92,9 @@ namespace shared
 
 			Vector3 S = geo.inputVertexPositions[v];
 
-			vToVContrib[v] = {};
-
-			vToVContrib[v].emplace_back(std::tuple{ v, (D - 3) / D});
+			std::unordered_map<Vertex, float> map{};
+			
+			map[v] = (D - 3) / D;
 
 			Vector3 R = Vector3::zero();
 
@@ -73,7 +102,16 @@ namespace shared
 				R += splitEdgePositions[e] / D;
 				for (auto const & [vertex, value] : vToEContrib[e])
 				{
-					vToVContrib[v].emplace_back(std::tuple{ vertex, value * (2.0f / (D * D)) });
+					float value2 = value * (2.0f / (D * D));
+					auto findRes = map.find(vertex);
+					if (findRes != map.end())
+					{
+						findRes->second += value2;
+					}
+					else
+					{
+						map[vertex] = value2;
+					}
 				}
 			}
 
@@ -83,12 +121,22 @@ namespace shared
 				Q += splitFacePositions[f] / D;
 				for (auto const& [vertex, value] : vToFContrib[f])
 				{
-					vToVContrib[v].emplace_back(std::tuple{ vertex, value * (1.0f / (D * D))});
+					float value2 = value * (1.0f / (D * D));
+					auto findRes = map.find(vertex);
+					if (findRes != map.end())
+					{
+						findRes->second += value2;
+					}
+					else
+					{
+						map[vertex] = value2;
+					}
 				}
 			}
 
 			newPositions[v] = (Q + 2 * R + (D - 3) * S) / D;
 
+			vToVContrib[v] = map;
 		}
 
 		// Subdivide edges
@@ -110,6 +158,12 @@ namespace shared
 			GC_SAFETY_ASSERT(isOrigVert[newHe.twin().vertex()] && isOrigVert[newHe.twin().next().twin().vertex()], "???");
 
 			newPositions[newV] = newPos;
+
+			vToVContrib[newV] = {};
+			for (auto& [v, value] : vToEContrib[e])
+			{
+				vToVContrib[newV][v] = value;
+			}
 		}
 
 		// Subdivide faces
@@ -124,6 +178,12 @@ namespace shared
 			isOrigVert[newV] = false;
 			newPositions[newV] = newPos;
 
+			vToVContrib[newV] = {};
+			for (auto& [v, value] : vToFContrib[f])
+			{
+				vToVContrib[newV][v] = value;
+			}
+			
 			for (Face f : newV.adjacentFaces()) {
 				isOrigFace[f] = false;
 			}
@@ -149,7 +209,15 @@ namespace shared
 
 		std::vector<ContribTuple> prevToNextContrib{};
 
-		for (auto & [f, items] : vToFContrib)
+		for (auto const & [nextV, items] : vToVContrib)
+		{
+			for (auto const & [prevV, value] : items)
+			{
+				prevToNextContrib.emplace_back(std::tuple{ prevV, nextV, value });
+			}
+		}
+
+		/*for (auto & [f, items] : vToFContrib)
 		{
 			for (auto & [v, value] : items)
 			{
@@ -162,14 +230,14 @@ namespace shared
 			{
 				prevToNextContrib.emplace_back(std::tuple{ oldPositions[v], splitEdgePositions[e], value});
 			}
-		}
-		for (auto & [newV, items] : vToVContrib)
+		}*/
+		/*for (auto & [newV, items] : vToVContrib)
 		{
 			for (auto& [oldV, value] : items)
 			{
 				prevToNextContrib.emplace_back(std::tuple{ oldPositions[oldV], newPositions[newV], value});
 			}
-		}
+		}*/
 
 		mesh.compress();
 		geo.inputVertexPositions = newPositions;

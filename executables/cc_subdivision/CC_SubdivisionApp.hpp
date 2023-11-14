@@ -67,7 +67,7 @@ private:
 	void CalcVertexToPointContribution(
 		std::vector<glm::vec3>& outVertices,
 		std::vector<int>& outVertexIndices,
-		std::vector<std::tuple<int, int, float>>& outVToPContrib
+		std::vector<std::tuple<int, int, std::vector<std::tuple<int, int, float>>>>& outVToPContrib
 	) const;
 
 	void CalcLaplacianContribution(
@@ -129,24 +129,6 @@ private:
 	std::vector<bool> subdivisionDirtyStatus{};
 	std::unordered_map<int, std::vector<std::tuple<int, geometrycentral::Vector3>>> deformationsPerLvl{};
 
-	struct Contribution
-	{
-		int nextLvlVIdx = -1;			// Next level vertex idx
-		int prevLvlVIdx = -1;			// Prev level vertex idx
-		float amount = 0.0f;			// Contribution amount
-	};
-
-	struct ContributionsMap
-	{
-		int prevLevel = -1;
-		int nextLevel = -1;
-		std::vector<Contribution> contributions{};
-		std::unordered_map<int, int> prevLvlContribIdx{};
-		std::unordered_map<int, int> nextLvlContribIdx{};
-	};
-
-	std::vector<ContributionsMap> contributionList{};
-
 	bool rightMouseDown = false;
 	// This points are stored globally for better debugging and possible memory reuse.
 	std::vector<glm::vec3> rayCastPoints{};
@@ -179,4 +161,6 @@ private:
 
 	int laplacianDistance = 5;
 	float laplacianWeight = 0.9f;
+
+	int numberOfEffectLevels = 0;
 };

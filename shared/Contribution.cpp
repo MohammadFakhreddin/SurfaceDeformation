@@ -26,14 +26,14 @@ namespace shared
 		{
 			auto const& [prevLvlPos, nextLvlPos, value] = prevToNextContrib[i];
 
-			auto const prevIdx = GetVertexIdx(prevLvlVs, prevLvlPos);
-			auto const nextIdx = GetVertexIdx(nextLvlVs, nextLvlPos);
+			auto const prevIdx = prevLvlPos.getIndex();// GetVertexIdx(prevLvlVs, prevLvlPos);
+			auto const nextIdx = nextLvlPos.getIndex();//GetVertexIdx(nextLvlVs, nextLvlPos);
 
 			auto const contribIdx = i;
 
 			_contribs[contribIdx] = Contribution{
-				.nextLvlVIdx = prevIdx,
-				.prevLvlVIdx = nextIdx,
+				.nextLvlVIdx = static_cast<int>(nextIdx),
+				.prevLvlVIdx = static_cast<int>(prevIdx),
 				.amount = value
 			};
 		}
@@ -49,23 +49,39 @@ namespace shared
 			auto fPrevRes = _prevLvlContribIdx.find(prevIdx);
 			if (fPrevRes != _prevLvlContribIdx.end())
 			{
-				fPrevRes->second.emplace_back(contribIdx);
+				fPrevRes->second.emplace_back(&_contribs[contribIdx]);
 			}
 			else
 			{
-				_prevLvlContribIdx[prevIdx] = { contribIdx };
+				_prevLvlContribIdx[prevIdx] = { &_contribs[contribIdx] };
 			}
 
 			auto fNextRes = _nextLvlContribIdx.find(nextIdx);
 			if (fNextRes != _nextLvlContribIdx.end())
 			{
-				fNextRes->second.emplace_back(contribIdx);
+				fNextRes->second.emplace_back(&_contribs[contribIdx]);
 			}
 			else
 			{
-				_nextLvlContribIdx[nextIdx] = { contribIdx };
+				_nextLvlContribIdx[nextIdx] = { &_contribs[contribIdx] };
 			}
 		}
+	}
+
+	//-----------------------------------------------------------------------------------------
+
+	std::vector<Contribution *> const& ContributionMap::GetPrevLvlContibs(int const prevGIdx)
+	{
+		MFA_ASSERT(_prevLvlContribIdx.contains(prevGIdx));
+		return _prevLvlContribIdx[prevGIdx];
+	}
+
+	//-----------------------------------------------------------------------------------------
+
+	std::vector<Contribution *> const& ContributionMap::GetNextLvlContribs(int const nextGIdx)
+	{
+		MFA_ASSERT(_nextLvlContribIdx.contains(nextGIdx));
+		return _nextLvlContribIdx[nextGIdx];
 	}
 
 	//-----------------------------------------------------------------------------------------
