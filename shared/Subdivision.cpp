@@ -94,7 +94,7 @@ namespace shared
 
 			std::unordered_map<Vertex, float> map{};
 			
-			map[v] = (D - 3) / D;
+			map[v] = (double)(D - 3) / (double)D;
 
 			Vector3 R = Vector3::zero();
 

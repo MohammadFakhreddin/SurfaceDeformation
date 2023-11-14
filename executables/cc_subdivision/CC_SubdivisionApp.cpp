@@ -483,7 +483,7 @@ void CC_SubdivisionApp::DeformMesh()
 
 	//https://eigen.tuxfamily.org/dox-devel/group__LeastSquares.html
 	// I either have to solve it three times or combine them in one giant matrix
-	Eigen::MatrixXf B;// (projPoints.size(), movableVertices.size());
+	Eigen::MatrixXf B (projPoints.size(), movableVertices.size());
 	//B.setZero();
 	for (int i = 0; i < (int)vToPContrib.size(); ++i)
 	{
@@ -503,7 +503,8 @@ void CC_SubdivisionApp::DeformMesh()
 		}
 		else
 		{
-			B = B * C;
+			auto D = B * C;
+			B = D;
 		}
 	}
 	auto const BT = B.transpose();
@@ -829,7 +830,7 @@ void CC_SubdivisionApp::CalcVertexToPointContribution(
 		vToPContrib.emplace_back(std::tuple{ FindOrInsertVertex(idx2), pIdx, coordinate.z });
 	}
 
-	outVToPContrib.emplace_back(std::tuple{ projPoints.size(), vGtoLIdx.size(), vToPContrib });
+	//outVToPContrib.emplace_back(std::tuple{ projPoints.size(), vGtoLIdx.size(), vToPContrib });
 	int prevDim = vGtoLIdx.size();
 
 	for (int i = 0; i < numberOfEffectLevels; ++i)
@@ -845,14 +846,16 @@ void CC_SubdivisionApp::CalcVertexToPointContribution(
 			auto const & contribs = contributionMapList[prevLvlIdx]->GetNextLvlContribs(prevLToGIdx[lIdx]);
 			for (auto const & contrib : contribs)
 			{
-				newVToPGContrib.emplace_back(std::tuple{ FindOrInsertVertex(contrib->prevLvlVIdx), lIdx, contrib->amount/* * value*/ });
+				//newVToPGContrib.emplace_back(std::tuple{ FindOrInsertVertex(contrib->prevLvlVIdx), lIdx, contrib->amount/* * value*/ });
+				newVToPGContrib.emplace_back(std::tuple{ FindOrInsertVertex(contrib->prevLvlVIdx), pIdx, contrib->amount * value });
 			}
 		}
 
-		outVToPContrib.emplace_back(std::tuple{ prevDim, vGtoLIdx.size(), newVToPGContrib });
+		//outVToPContrib.emplace_back(std::tuple{ prevDim, vGtoLIdx.size(), newVToPGContrib });
 		prevDim = vGtoLIdx.size();
 		vToPContrib = newVToPGContrib;
 	}
+	outVToPContrib.emplace_back(std::tuple{projPoints.size(),vGtoLIdx.size(), vToPContrib });
 
 	auto const lvlVertices = surfaceMeshList[subdivisionLevel - numberOfEffectLevels]->GetVertices();
 	outVertexIndices = lToGIdx;

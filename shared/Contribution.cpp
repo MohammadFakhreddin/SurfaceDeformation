@@ -26,7 +26,7 @@ namespace shared
 		{
 			auto const& [prevLvlPos, nextLvlPos, value] = prevToNextContrib[i];
 
-			auto const prevIdx = prevLvlPos.getIndex();// GetVertexIdx(prevLvlVs, prevLvlPos);
+			auto const prevIdx = prevLvlPos.getIndex();//GetVertexIdx(prevLvlVs, prevLvlPos);
 			auto const nextIdx = nextLvlPos.getIndex();//GetVertexIdx(nextLvlVs, nextLvlPos);
 
 			auto const contribIdx = i;
