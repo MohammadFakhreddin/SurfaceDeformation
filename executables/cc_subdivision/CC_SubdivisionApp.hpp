@@ -67,7 +67,7 @@ private:
 	void CalcVertexToPointContribution(
 		std::vector<glm::vec3>& outVertices,
 		std::vector<int>& outVertexIndices,
-		std::vector<std::tuple<int, int, std::vector<std::tuple<int, int, float>>>>& outVToPContrib
+		std::vector<std::tuple<int, int, float>>& outVToPContrib
 	) const;
 
 	void CalcLaplacianContribution(

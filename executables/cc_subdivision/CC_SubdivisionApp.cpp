@@ -19,9 +19,10 @@ using namespace shared;
 // 3- Draw by right button. (Done)
 // 4- Draw on curtain (Done)
 // 5- Clear curtain (Done)
-// 6- Sample points with a delta
-// 7- Deform mesh using a button
-// 8- Basis function for larger subdivision
+// 6- Sample points with a delta (Done)
+// 7- Deform mesh using a button (Done)
+// 8- Basis function for larger subdivision (Done)
+// 9- Fix the remaining bugs, maybe cleanup and write a report.
 
 CC_SubdivisionApp::CC_SubdivisionApp()
 {
@@ -464,11 +465,10 @@ void CC_SubdivisionApp::DeformMesh()
 
 	MFA_ASSERT(sampledPoints.size() == projPoints.size());
 
-	// TODO: Start from here: Apply point contribution, We need to have v to P contribution from n number of subdivision before
 	std::vector<glm::vec3> movableVertices{};
 	std::vector<int> vertexGIndices{};
-	std::vector<std::tuple<int, int, std::vector<std::tuple<int, int, float>>>> vToPContrib{};				// For projection
-	CalcVertexToPointContribution(movableVertices, vertexGIndices, vToPContrib);					// Global indices
+	std::vector<std::tuple<int, int, float>> vToPContrib{};													// For projection
+	CalcVertexToPointContribution(movableVertices, vertexGIndices, vToPContrib);							// Global indices
 
 	std::vector<glm::vec3> allVertices(movableVertices.begin(), movableVertices.end());
 	std::vector<std::tuple<int, int, float>> vToVContrib{};													// For laplacian
@@ -484,28 +484,12 @@ void CC_SubdivisionApp::DeformMesh()
 	//https://eigen.tuxfamily.org/dox-devel/group__LeastSquares.html
 	// I either have to solve it three times or combine them in one giant matrix
 	Eigen::MatrixXf B (projPoints.size(), movableVertices.size());
-	//B.setZero();
-	for (int i = 0; i < (int)vToPContrib.size(); ++i)
+	B.setZero();
+	for (auto& [vIdx, pIdx, value] : vToPContrib)
 	{
-		auto const& [dim0, dim1, items] = vToPContrib[i];
-		Eigen::MatrixXf C(dim0, i != vToPContrib.size() - 1 ? dim1 : movableVertices.size());
-		C.setZero();
-		for (auto& [vIdx, pIdx, value] : items)
-		{
-			MFA_ASSERT(C.rows() > pIdx);
-			MFA_ASSERT(C.cols() > vIdx);
-			//MFA_ASSERT(C(pIdx, vIdx) == 0.0f);
-			C(pIdx, vIdx) += value;
-		}
-		if (i == 0)
-		{
-			B = C;
-		}
-		else
-		{
-			auto D = B * C;
-			B = D;
-		}
+		MFA_ASSERT(B.rows() > pIdx);
+		MFA_ASSERT(B.cols() > vIdx);
+		B(pIdx, vIdx) += value;
 	}
 	auto const BT = B.transpose();
 
@@ -585,8 +569,10 @@ void CC_SubdivisionApp::DeformMesh()
 
 	for (int nextLvl = lvl + 1; nextLvl <= subdivisionLevel; ++nextLvl)
 	{
-		std::shared_ptr subdividedMesh = surfaceMeshList[lvl]->GetMesh()->copy();
-		std::shared_ptr subdividedGeometry = surfaceMeshList[lvl]->GetGeometry()->reinterpretTo(*subdividedMesh);
+		int prevLvl = nextLvl - 1;
+
+		std::shared_ptr subdividedMesh = surfaceMeshList[prevLvl]->GetMesh()->copy();
+		std::shared_ptr subdividedGeometry = surfaceMeshList[prevLvl]->GetGeometry()->reinterpretTo(*subdividedMesh);
 
 		geometrycentral::surface::catmullClarkSubdivide(*subdividedMesh, *subdividedGeometry);
 
@@ -759,29 +745,20 @@ void CC_SubdivisionApp::ProjectCurtainPoints()
 void CC_SubdivisionApp::CalcVertexToPointContribution(
 	std::vector<glm::vec3>& outVertices,
 	std::vector<int>& outVertexIndices,
-	std::vector<std::tuple<int, int, std::vector<std::tuple<int, int, float>>>>& outVToPContrib
+	std::vector<std::tuple<int, int, float>>& outVToPContrib
 ) const
 {
 	std::vector<std::tuple<int, int, float>> vToPContrib{};
 
 	std::unordered_map<int, int> vGtoLIdx{}; // Vertex global to local idx
-	//std::vector<glm::vec3> vertices{};
 	std::vector<int> lToGIdx{};
 	std::vector<int> prevLToGIdx{};
-
-	//std::unordered_map<int, int> prevVGtoLIdx{}; // Vertex global to local idx
-	//std::vector<std::tuple<int, int, float>> vToPContrib{};
-	//std::vector<glm::vec3> vertices{};
-	//std::vector<int> vertexIndices{};
 
 	auto Clear = [&]()->void
 	{
 		prevLToGIdx = lToGIdx;
-
 		vGtoLIdx.clear();
-		//vertices.clear();
 		lToGIdx.clear();
-		//vToPContrib.clear();
 	};
 
 	auto FindOrInsertVertex = [&](int globalIdx)->int
@@ -792,11 +769,8 @@ void CC_SubdivisionApp::CalcVertexToPointContribution(
 			return findResult->second;
 		}
 
-		//int const localIdx = static_cast<int>(vertices.size());
-
 		int const localIdx = lToGIdx.size();
 		vGtoLIdx[globalIdx] = localIdx;
-		//vertices.emplace_back(position);
 		lToGIdx.emplace_back(globalIdx);
 
 		return localIdx;
@@ -830,9 +804,6 @@ void CC_SubdivisionApp::CalcVertexToPointContribution(
 		vToPContrib.emplace_back(std::tuple{ FindOrInsertVertex(idx2), pIdx, coordinate.z });
 	}
 
-	//outVToPContrib.emplace_back(std::tuple{ projPoints.size(), vGtoLIdx.size(), vToPContrib });
-	int prevDim = vGtoLIdx.size();
-
 	for (int i = 0; i < numberOfEffectLevels; ++i)
 	{
 		Clear();
@@ -846,16 +817,13 @@ void CC_SubdivisionApp::CalcVertexToPointContribution(
 			auto const & contribs = contributionMapList[prevLvlIdx]->GetNextLvlContribs(prevLToGIdx[lIdx]);
 			for (auto const & contrib : contribs)
 			{
-				//newVToPGContrib.emplace_back(std::tuple{ FindOrInsertVertex(contrib->prevLvlVIdx), lIdx, contrib->amount/* * value*/ });
 				newVToPGContrib.emplace_back(std::tuple{ FindOrInsertVertex(contrib->prevLvlVIdx), pIdx, contrib->amount * value });
 			}
 		}
 
-		//outVToPContrib.emplace_back(std::tuple{ prevDim, vGtoLIdx.size(), newVToPGContrib });
-		prevDim = vGtoLIdx.size();
 		vToPContrib = newVToPGContrib;
 	}
-	outVToPContrib.emplace_back(std::tuple{projPoints.size(),vGtoLIdx.size(), vToPContrib });
+	outVToPContrib = vToPContrib;
 
 	auto const lvlVertices = surfaceMeshList[subdivisionLevel - numberOfEffectLevels]->GetVertices();
 	outVertexIndices = lToGIdx;
@@ -863,11 +831,6 @@ void CC_SubdivisionApp::CalcVertexToPointContribution(
 	{
 		outVertices.emplace_back(lvlVertices[gIdx].position);
 	}
-	/*auto const lvlVertices = surfaceMeshList[subdivisionLevel - numberOfEffectLevels]->GetVertices();
-	for (auto const & [gIdx, pIdx, value] : vToPGContrib)
-	{
-		outVToPContrib.emplace_back(std::tuple{ FindOrInsertVertex(gIdx, lvlVertices[gIdx].position), pIdx, value });
-	}*/
 }
 
 //-----------------------------------------------------
