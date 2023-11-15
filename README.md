@@ -32,7 +32,7 @@ I categorized the points into two groups: movable points and all the points. Aft
 
 ## bdcSVD solver
 
-I used the ```Eigen::bdcSVD``` solver to solve the equation. Left hand side is computed by combining the B and Y matrices with a weight of 0.9. I solved this equation 3 times for the x, y and z component of the matrix. You can view the implementation in ```CC_SubdivisionApp.cpp```.
+I employed the ```Eigen::bdcSVD solver``` to address the equation. The left-hand side is derived by combining the B and Y matrices with a weight of 0.9. I iteratively solved this equation three times, once for each component (x, y, and z) of the points. The implementation details are available in ```CC_SubdivisionApp.cpp```.
 
 # How to install dependencies
 
