@@ -1,5 +1,7 @@
-# Assignment 2: Catmul-clark subdivision
+# Catmul-clark subdivision
 ```by Mohammad Fakhreddin```
+
+Demo project that you can draw on surfaces.
 
 # Report
 
